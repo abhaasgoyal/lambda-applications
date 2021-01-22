@@ -16,6 +16,7 @@ import Data.Maybe
 import Parsing
 import Control.Monad
 import Data.List
+import qualified Data.Ord
 import GHC.Generics (Generic,Generic1)
 import Control.DeepSeq
 import System.IO
@@ -67,10 +68,14 @@ search word (grid, orient) = foldl searchCond Nothing searchGrid
     adjustedPos (x,y) = (x-1, y-1)
 
 searchingTypes :: WordSearchGrid -> [(GridWithPos, Orientation)]
-searchingTypes grid = [(gridWithPos, Forward), (reverse gridWithPos, Back), (concat $ transpose twoDGridWithPos, Down),
-                   (reverse $ concat $ transpose twoDGridWithPos, Up), (diagonalString twoDGridWithPos, UpForward),
-                   (diagonalString $ transpose twoDGridWithPos, DownBack), (diagonalString $ reverse twoDGridWithPos, DownForward),
-                   (diagonalString $ transpose $ reverse twoDGridWithPos, UpBack)]
+searchingTypes grid = zip [gridWithPos,
+                       reverse gridWithPos,
+                       concat $ transpose twoDGridWithPos,
+                       reverse $ concat $ transpose twoDGridWithPos,
+                       diagonalString twoDGridWithPos,
+                       diagonalString $ transpose twoDGridWithPos,
+                       diagonalString $ reverse twoDGridWithPos,
+                       diagonalString $ transpose $ reverse twoDGridWithPos] ordOrient
   where
     gridWithPos :: GridWithPos
     gridWithPos = zip indices (concat grid)
@@ -85,6 +90,9 @@ searchingTypes grid = [(gridWithPos, Forward), (reverse gridWithPos, Back), (con
 
     twoDIndices :: Int -> [Posn]
     twoDIndices x = [(y,x) | y <- [0 .. gridLen - 1]]
+
+ordOrient :: [Orientation]
+ordOrient = [Forward, Back, Down, Up, UpForward, DownBack, DownForward, UpBack]
 
 solveWordSearch :: [ String ] -> WordSearchGrid -> [ (String,Maybe Placement) ]
 solveWordSearch words grid = map (\word -> ( word,
@@ -109,6 +117,38 @@ borderedGrid grid = verticalBorder ++ map (\str -> "-" ++ str ++ "-") grid ++ ve
     verticalBorder :: [[Char]]
     verticalBorder = [replicate (gridLen + 2) '-']
 
+unborderedGrid :: WordSearchGrid -> WordSearchGrid
+unborderedGrid grid = map (init . tail) (init $ tail grid)
+
+findPos :: Posn -> Orientation -> String -> [Posn]
+findPos (x,y) orient word = zip x_r y_r
+  where
+
+    len = length word
+
+    x_s = replicate len x
+    y_s = replicate len y
+    forward = [x .. (x + len - 1)]
+    back = [x, x-1 .. (x - len + 1)]
+    down = [y .. (y + len - 1)]
+    up = [y, y-1 .. (y - len - 1)]
+
+    (x_r, y_r, _) = posRange
+
+    posRange :: ([Int], [Int], Orientation)
+    posRange = head $ dropWhile (\(x_r, y_r, otype) -> orient /= otype) posList
+
+    posList :: [([Int],[Int], Orientation)]
+    posList = [(forward, y_s, Forward),
+                (back, y_s, Back),
+                (x_s, down , Down),
+                (x_s, up, Up),
+                (forward, up, UpForward),
+                (back, down, DownBack),
+                (forward, down, DownForward),
+                (back, up, UpBack)]
+
+
 
 -- Two examples for you to try out, the first of which is in the instructions
 
@@ -130,16 +170,78 @@ searchInstances grids word = sum $ map helpSearch grids
     helpSearch :: String -> Int
     helpSearch grid = foldl (\acc x -> if take len x == word then acc + 1 else acc) 0 (tails grid)
 
+createGrid :: Int -> Double -> WordSearchGrid
+createGrid maxLen density = replicate sideLen $ replicate sideLen '_'
+  where
+    sideLen :: Int
+    sideLen = ceiling (1.0 / density) * maxLen
+fillGrid :: [String] -> WordSearchGrid -> IO WordSearchGrid
+fillGrid wordList grid = foldM helpFillWord grid wordList
+  where
+    helpFillWord :: WordSearchGrid -> String -> IO WordSearchGrid
+    helpFillWord currGrid word = do
+      seed <- newStdGen
+      let (randomOrientIndex, seed2) = randomR (0,7) seed :: (Int, StdGen)
+      let currOrient = ordOrient !! randomOrientIndex
+      print currOrient
+      let strOrient  = fst $ strGridsWithPos currGrid !! randomOrientIndex
+      -- print strOrient
+      let (xcoord, seed3) = randomR (1, gridLen - 2) seed2 :: (Int, StdGen)
+      let (ycoord, _) = randomR (1, gridLen - 2) seed3 :: (Int, StdGen)
+
+      let wordToBeChecked = take (length word) $ dropWhile (\(pos,chr) -> pos /= (xcoord, ycoord)) strOrient
+      let acceptableWord = all (\(a,b) -> a == b || b == '_') (zip word $ map snd wordToBeChecked)
+      let newGrid = foldl replace currGrid (zip (findPos (xcoord,ycoord) currOrient word) word)
+      if acceptableWord then
+        return newGrid
+      else
+        helpFillWord currGrid word
+
+    strGridsOrd :: WordSearchGrid -> [(String, Orientation)]
+    strGridsOrd currGrid = zip (strGrids currGrid) ordOrient
+
+    fillLetter :: (Posn,Char) -> WordSearchGrid -> IO WordSearchGrid
+    fillLetter ((x,y),letter) grid = undefined
+
+    gridLen = length grid
+
+    replace :: WordSearchGrid -> (Posn,Char) -> WordSearchGrid
+    replace grid ((x',y'), letter) = do
+       (x,row) <- zip [0..] grid
+       return [if x == x' && y == y' then letter else r | (y,r) <- zip [0..] row]
+
+strGrids :: WordSearchGrid -> [String]
+strGrids grid = map (map snd . fst) (searchingTypes (borderedGrid grid))
+
+strGridsWithPos :: WordSearchGrid -> [(GridWithPos, Orientation)]
+strGridsWithPos grid = searchingTypes (borderedGrid grid)
+
 createWordSearch :: [ String ] -> Double -> IO WordSearchGrid
 createWordSearch wordList density = do
-  let grid = ["ab", "cd"]
-  let strGrids = map (map snd . fst) (searchingTypes grid)
-  let strInstances = map (searchInstances strGrids) wordList
+  let emptyGrid = createGrid (length $ maximumBy (Data.Ord.comparing length) wordList) density
+  let uniqueLetters = nub $ concat wordList
+  finalWordFill <- fillGrid wordList emptyGrid
+  finalGrid <- mapM (mapM (finalRandFill uniqueLetters)) finalWordFill
+  let finalStrGrids = strGrids finalGrid
+  let strInstances = map (searchInstances finalStrGrids) wordList
   let correctGrid = all (==1) strInstances
-  print strInstances
-  mapM_ putStrLn strGrids
-  return []
+--  mapM_ putStrLn finalStrGrids
+  printGrid' finalGrid
+  -- print $ length finalGrid
+  if correctGrid then
+    return (unborderedGrid finalGrid)
+  else
+    createWordSearch wordList density
 
+finalRandFill :: String -> Char -> IO Char
+finalRandFill letterRange x
+  | x == '_' = do
+      seed <- newStdGen
+      let (randIdx, _) = randomR (0, length letterRange - 1) seed :: (Int, StdGen)
+      return (letterRange !! randIdx)
+  | otherwise = return x
+  where
+    lenRange = [0..length letterRange - 1]
 
 --- Convenience functions supplied for testing purposes
 createAndSolve :: [ String ] -> Double -> IO [ (String, Maybe Placement) ]

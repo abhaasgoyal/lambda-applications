@@ -51,31 +51,27 @@ diagonalString wds = [ wds !! (x - y) !! y | x <- [0..(len - 1)] , y <- [0 .. x]
     len = length wds - 1
 
 search :: String -> (GridWithPos, Orientation) -> Maybe Placement
-search word (grid, orient) = foldl (\acc (pos,x) -> if take len x == word then
-                                            Just (pos, orient)
-                                          else
-                                            acc)
-                             Nothing searchGrid
+search word (grid, orient) = foldl searchCond Nothing searchGrid
   where
     len = length word
+
+    searchCond :: Maybe Placement -> (Posn, String) -> Maybe Placement
+    searchCond acc (pos, x)
+      | take len x == word = Just (adjustedPos pos, orient)
+      | otherwise = acc
 
     searchGrid :: [(Posn, String)]
     searchGrid = zip (map fst grid) (tails $ map snd grid)
 
-solveWordSearch :: [ String ] -> WordSearchGrid -> [ (String,Maybe Placement) ]
-solveWordSearch words grid = map (\word -> ( word,
-                                             foldl
-                                             (helpSolveWordSearch word) Nothing searchTypes)) words
+    adjustedPos :: Posn -> Posn
+    adjustedPos (x,y) = (x-1, y-1)
+
+searchingTypes :: WordSearchGrid -> [(GridWithPos, Orientation)]
+searchingTypes grid = [(gridWithPos, Forward), (reverse gridWithPos, Back), (concat $ transpose twoDGridWithPos, Down),
+                   (reverse $ concat $ transpose twoDGridWithPos, Up), (diagonalString twoDGridWithPos, UpForward),
+                   (diagonalString $ transpose twoDGridWithPos, DownBack), (diagonalString $ reverse twoDGridWithPos, DownForward),
+                   (diagonalString $ transpose $ reverse twoDGridWithPos, UpBack)]
   where
-
-    helpSolveWordSearch ::  String -> Maybe Placement -> (GridWithPos, Orientation) -> Maybe Placement
-    helpSolveWordSearch word placement searchType@(grid, orient)
-      | isJust foundType = search word searchType
-      | otherwise = placement
-      where
-        foundType :: Maybe Placement
-        foundType = search word searchType
-
     gridWithPos :: GridWithPos
     gridWithPos = zip indices (concat grid)
 
@@ -90,11 +86,29 @@ solveWordSearch words grid = map (\word -> ( word,
     twoDIndices :: Int -> [Posn]
     twoDIndices x = [(y,x) | y <- [0 .. gridLen - 1]]
 
-    searchTypes :: [(GridWithPos, Orientation)]
-    searchTypes = [(gridWithPos, Forward), (reverse gridWithPos, Back), (concat $ transpose twoDGridWithPos, Down),
-                   (reverse $ concat $ transpose twoDGridWithPos, Up), (diagonalString twoDGridWithPos, UpForward),
-                   (diagonalString $ transpose twoDGridWithPos, DownBack), (diagonalString $ reverse twoDGridWithPos, DownForward),
-                   (diagonalString $ transpose $ reverse twoDGridWithPos, UpBack)]
+solveWordSearch :: [ String ] -> WordSearchGrid -> [ (String,Maybe Placement) ]
+solveWordSearch words grid = map (\word -> ( word,
+                                             foldl
+                                             (helpSolveWordSearch word) Nothing (searchingTypes $ borderedGrid grid))) words
+  where
+
+    helpSolveWordSearch ::  String -> Maybe Placement -> (GridWithPos, Orientation) -> Maybe Placement
+    helpSolveWordSearch word placement searchType@(grid, orient)
+      | isJust foundType = search word searchType
+      | otherwise = placement
+      where
+        foundType :: Maybe Placement
+        foundType = search word searchType
+    gridLen = length grid
+
+borderedGrid :: WordSearchGrid -> WordSearchGrid
+borderedGrid grid = verticalBorder ++ map (\str -> "-" ++ str ++ "-") grid ++ verticalBorder
+  where
+    gridLen = length grid
+
+    verticalBorder :: [[Char]]
+    verticalBorder = [replicate (gridLen + 2) '-']
+
 
 -- Two examples for you to try out, the first of which is in the instructions
 
@@ -108,8 +122,23 @@ testDiag1'1 = "HSAGAGMCCNEGSAITKHTGRINNKAETMRILMCTSGAAREIKAHIMATTLEKZRHLGKLKOCEC
 
 -- Challenge 2 --
 
+searchInstances :: [String] -> String -> Int
+searchInstances grids word = sum $ map helpSearch grids
+  where
+    len = length word
+
+    helpSearch :: String -> Int
+    helpSearch grid = foldl (\acc x -> if take len x == word then acc + 1 else acc) 0 (tails grid)
+
 createWordSearch :: [ String ] -> Double -> IO WordSearchGrid
-createWordSearch _ _ = return []
+createWordSearch wordList density = do
+  let grid = ["ab", "cd"]
+  let strGrids = map (map snd . fst) (searchingTypes grid)
+  let strInstances = map (searchInstances strGrids) wordList
+  let correctGrid = all (==1) strInstances
+  print strInstances
+  mapM_ putStrLn strGrids
+  return []
 
 
 --- Convenience functions supplied for testing purposes
@@ -124,7 +153,8 @@ printGrid [] = return ()
 printGrid (w:ws) = do putStrLn w
                       printGrid ws
 
-
+printGrid' :: WordSearchGrid -> IO ()
+printGrid' grid = printGrid $ borderedGrid grid
 
 -- Challenge 3 --
 

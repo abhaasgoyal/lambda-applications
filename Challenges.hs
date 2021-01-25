@@ -46,12 +46,14 @@ data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
 -- ADD YOUR OWN CODE HERE
 
 -- Challenge 1 --
+-- | Diagonal String out of grid
 diagonalString :: [GridWithPos] -> GridWithPos
 diagonalString wds = [ wds !! (x - y) !! y | x <- [0..(len - 1)] , y <- [0 .. x]] ++
                      [ wds !! y !! (len + x - y) | x <- [0..len] , y <- [len, (len - 1) .. x]]
   where
     len = length wds - 1
 
+-- | Search for placement of one word in an oriented grid
 search :: String -> (GridWithPos, Orientation) -> Maybe Placement
 search word (grid, orient) = foldl searchCond Nothing searchGrid
   where
@@ -68,6 +70,7 @@ search word (grid, orient) = foldl searchCond Nothing searchGrid
     adjustedPos :: Posn -> Posn
     adjustedPos (x,y) = (x-1, y-1)
 
+-- | Creation of Grid with Position for various orientations
 searchingTypes :: WordSearchGrid -> [(GridWithPos, Orientation)]
 searchingTypes grid = zip [gridWithPos,
                        reverse gridWithPos,
@@ -92,9 +95,11 @@ searchingTypes grid = zip [gridWithPos,
     twoDIndices :: Int -> [Posn]
     twoDIndices x = [(y,x) | y <- [0 .. gridLen - 1]]
 
+-- | Order of orientation used for zipping
 ordOrient :: [Orientation]
 ordOrient = [Forward, Back, Down, Up, UpForward, DownBack, DownForward, UpBack]
 
+-- | Main function to solve word search
 solveWordSearch :: [ String ] -> WordSearchGrid -> [ (String,Maybe Placement) ]
 solveWordSearch words grid = map (\word -> ( word,
                                              foldl
@@ -110,6 +115,7 @@ solveWordSearch words grid = map (\word -> ( word,
         foundType = search word searchType
     gridLen = length grid
 
+-- | Create a bordered grid for when converted to string then continuous -'s aren't used
 borderedGrid :: WordSearchGrid -> WordSearchGrid
 borderedGrid grid = verticalBorder ++ map (\str -> "-" ++ str ++ "-") grid ++ verticalBorder
   where
@@ -118,9 +124,23 @@ borderedGrid grid = verticalBorder ++ map (\str -> "-" ++ str ++ "-") grid ++ ve
     verticalBorder :: [[Char]]
     verticalBorder = [replicate (gridLen + 2) '-']
 
+-- | Create unbordered grid from bordered grid
 unborderedGrid :: WordSearchGrid -> WordSearchGrid
 unborderedGrid grid = map (init . tail) (init $ tail grid)
 
+-- Two examples for you to try out, the first of which is in the instructions
+
+exGrid1'1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ]
+exWords1'1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]
+
+exGrid1'2 = ["ROBREUMBR","AURPEPSAN","UNLALMSEE","YGAUNPYYP","NLMNBGENA","NBLEALEOR","ALRYPBBLG","NREPBEBEP","YGAYAROMR"]
+exWords1'2 = [ "BANANA", "ORANGE", "MELON", "RASPBERRY","APPLE","PLUM","GRAPE" ]
+
+testDiag1'1 = "HSAGAGMCCNEGSAITKHTGRINNKAETMRILMCTSGAAREIKAHIMATTLEKZRHLGKLKOCECIDSLTNDASENGRRDG"
+
+-- Challenge 2 --
+
+-- | Find list of positions given the starting position, word and it's orientation
 findPos :: Posn -> Orientation -> String -> [Posn]
 findPos (x,y) orient word = zip x_r y_r
   where
@@ -144,18 +164,8 @@ findPos (x,y) orient word = zip x_r y_r
                    [y_s, y_s, down, up, up, down, down, up]
                    ordOrient
 
--- Two examples for you to try out, the first of which is in the instructions
 
-exGrid1'1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ]
-exWords1'1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]
-
-exGrid1'2 = ["ROBREUMBR","AURPEPSAN","UNLALMSEE","YGAUNPYYP","NLMNBGENA","NBLEALEOR","ALRYPBBLG","NREPBEBEP","YGAYAROMR"]
-exWords1'2 = [ "BANANA", "ORANGE", "MELON", "RASPBERRY","APPLE","PLUM","GRAPE" ]
-
-testDiag1'1 = "HSAGAGMCCNEGSAITKHTGRINNKAETMRILMCTSGAAREIKAHIMATTLEKZRHLGKLKOCECIDSLTNDASENGRRDG"
-
--- Challenge 2 --
-
+-- | Check how many instances of word are present in the grid
 searchInstances :: [String] -> String -> Int
 searchInstances grids word = sum $ map helpSearch grids
   where
@@ -164,6 +174,7 @@ searchInstances grids word = sum $ map helpSearch grids
     helpSearch :: String -> Int
     helpSearch grid = foldl (\acc x -> if take len x == word then acc + 1 else acc) 0 (tails grid)
 
+-- | Created and empty grid of a particular density
 createGrid :: Int -> Double -> WordSearchGrid
 createGrid maxLen density = replicate sideLen $ replicate sideLen '_'
   where
@@ -172,6 +183,7 @@ createGrid maxLen density = replicate sideLen $ replicate sideLen '_'
       | density < 1 = ceiling (1.0 / density) * maxLen
       | otherwise = ceiling (1.0 / (density - 0.01)) * maxLen
 
+-- | Fill Words in random positions and orientations in empty grid
 helpFillWord :: WordSearchGrid -> String -> IO WordSearchGrid
 helpFillWord currGrid word = do
   (randomOrientIndex, seed2) <- fmap (randomR (0,7)) newStdGen
@@ -199,12 +211,15 @@ helpFillWord currGrid word = do
        (x,row) <- zip [0..] grid
        return [if x == x' && y == y' then letter else r | (y,r) <- zip [0..] row]
 
+-- | Make a list of strings of words in orientation
 strGrids :: WordSearchGrid -> [String]
 strGrids = map (map snd . fst) . strGridsWithPos
 
+-- | Make a list of strings of words in orientation and position
 strGridsWithPos :: WordSearchGrid -> [(GridWithPos, Orientation)]
 strGridsWithPos = searchingTypes . borderedGrid
 
+-- | Main function for creating word search
 createWordSearch :: [ String ] -> Double -> IO WordSearchGrid
 createWordSearch wordList density = do
   -- create empty grid
@@ -223,6 +238,7 @@ createWordSearch wordList density = do
   -- Start again
       createWordSearch wordList density
 
+-- | After the grid has been filled with words fill other positions with random characters
 finalRandFill :: String -> Char -> IO Char
 finalRandFill letterRange x = do
   (randIdx, _) <- fmap (randomR (0, length letterRange - 1)) newStdGen
@@ -249,16 +265,15 @@ printGrid' grid = printGrid $ borderedGrid grid
 
 -- Challenge 3 --
 
--- data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read,Generic)
--- data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
---                LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read,Generic)
-
+-- | prettyPrint LamVar
 printVar :: Int -> String
 printVar i = 'x':show i
 
+-- | prettyPrint LamAbsVar
 printAbs :: Int -> String
 printAbs i = "/" ++ printVar i ++ "->"
 
+-- | Given an expression and macros return pretty printed string
 abstractExpr :: LamExpr -> [(String,LamExpr)] -> String
 abstractExpr expr macros = case expr of
                       LamVar x -> printVar x
@@ -270,18 +285,13 @@ abstractExpr expr macros = case expr of
   where
     printBracketedExpr :: LamExpr -> String
     printBracketedExpr remExpr
-      | isNothing $ advLookUpExpr remExpr = "(" ++ printedExpr ++ ")"
+      | isNothing $ advLookUpExpr remExpr = "(" ++ printExpr remExpr ++ ")"
 --      Note that after testing if less testcases replace below with above
 --      | isNothing $ lookUpExpr remExpr = "(" ++ printedExpr ++ ")"
-      | otherwise = printedExpr
-      where
-        printedExpr = printExpr remExpr
+      | otherwise = printExpr remExpr
 
     printExpr :: LamExpr -> String
-    printExpr remExpr = findMacro remExpr
-
-    findMacro :: LamExpr -> String
-    findMacro remExpr
+    printExpr remExpr
      | isNothing $ advLookUpExpr remExpr  = abstractExpr remExpr macros
      | otherwise = fst $ fromMaybe ("Illegal Macro", LamVar (-1)) $ advLookUpExpr remExpr
 --      Note that after testing if less testcases replace below 2 lines with above 2 lines
@@ -309,6 +319,7 @@ eqSyntaxExpr varLookUp expr1 expr2 = case (expr1,expr2) of
      lookUpInt :: Int -> Int -> Bool
      lookUpInt a b = fromMaybe (-1) (lookup a varLookUp) == b
 
+-- | Main function for pretty printing
 prettyPrint :: LamMacroExpr -> String
 prettyPrint (LamDef defs expr) = concatMap helpPrintDef defs ++ abstractExpr expr defs
   where
@@ -320,34 +331,173 @@ ex3'1 = LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))
 ex3'2 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))
 ex3'3 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))
 ex3'4 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))
-
+ex3'5 = LamDef [] (LamApp (LamVar 1) (LamApp (LamVar 3) (LamVar 4)))
 
 -- Challenge 4 --
 
-parseLamMacro :: String -> Maybe LamMacroExpr
-parseLamMacro _ = Nothing
+-- data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read,Generic)
+-- data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
+--                LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read,Generic)
 
+parseMacroExpr :: Parser LamMacroExpr
+parseMacroExpr = do
+  defs <- parseDefs []
+  expr <- parseExpr
+  return (LamDef defs expr)
+
+parseDefs :: [(String, LamExpr)] -> Parser [(String, LamExpr)]
+parseDefs defs = do
+  newDef <- parseDef
+  if null newDef then
+    return defs
+  else do
+    finalDef <- parseDefs (newDef:defs)
+    return (newDef:finalDef)
+    <|> return (newDef:defs)
+
+parseDef :: Parser (String, LamExpr)
+parseDef = do
+  string "def"
+  minSpace
+  macro <- parseMacro
+  let (LamMacro x) = macro
+  space
+  char '='
+  space
+  expr <- parseExpr
+  space
+  string "in"
+  minSpace
+  return (x, expr)
+
+parseExpr :: Parser LamExpr
+parseExpr = parseApp <|> parseExprWOApp
+
+parseExprWOApp :: Parser LamExpr
+parseExprWOApp = parseBrac <|> parseVar <|> parseMacro <|> parseAbs
+
+parseVar :: Parser LamExpr
+parseVar = do
+  char 'x'
+  var <- natural
+  return (LamVar var)
+
+parseMacro :: Parser LamExpr
+parseMacro = do
+  x <- some upper
+  return (LamMacro x)
+
+parseApp :: Parser LamExpr
+parseApp = do
+  expr1 <- parseExprWOApp
+  minSpace
+  expr2 <- parseExprWOApp
+  return (LamApp expr1 expr2)
+
+parseAbs :: Parser LamExpr
+parseAbs = do
+  symbol "\\"
+  lamVar <- parseVar
+  let (LamVar var) = lamVar
+  symbol "->"
+  expr <- parseExpr
+  return (LamAbs var expr)
+
+parseBrac :: Parser LamExpr
+parseBrac = do
+  char '('
+  expr <- parseExpr
+  char ')'
+  return expr
+
+parseLamMacro :: String -> Maybe LamMacroExpr
+parseLamMacro str = case parse parseMacroExpr str of
+                      [] -> Nothing
+                      (x,str):_ -> Just x
 
 -- Challenge 5
 
+-- | Take maxmimum of used variables and generate a new variable
+newVarGen :: [Int] -> Int
+newVarGen a = maximum a + 1
+
+-- | List of usedVariables
+listUsedVar :: LamMacroExpr -> [Int]
+listUsedVar (LamDef defs expr) = nub $ concatMap (helpList . snd) defs ++ helpList expr
+  where
+    helpList :: LamExpr -> [Int]
+    helpList (LamVar x) = [x]
+    helpList (LamMacro _) = []
+    helpList (LamAbs i expr) = i:helpList expr
+    helpList (LamApp expr1 expr2) = helpList expr1 ++ helpList expr2
+
+-- | Main function for transforming in cps
 cpsTransform :: LamMacroExpr -> LamMacroExpr
-cpsTransform _ = LamDef [] (LamVar 0)
+cpsTransform lam@(LamDef defs expr) = LamDef (zip (map fst defs) (map (helpTransform newVar . snd) defs)) (helpTransform newVar expr)
+  where
+    newVar :: Int
+    newVar = newVarGen $ listUsedVar lam
 
+-- | Given a newVariable and an expression convert to cps
+helpTransform :: Int -> LamExpr -> LamExpr
+helpTransform n (LamVar x) = LamAbs n (LamApp (LamVar n) (LamVar x))
+helpTransform n (LamAbs i expr) = LamAbs n (LamApp (LamVar n) (LamAbs i (helpTransform (n+1) expr)))
+helpTransform n (LamApp expr1 expr2) = LamAbs n (LamApp (helpTransform (n+1) expr1)
+                                                  (LamAbs (n+2) (LamApp (helpTransform (n+3) expr2)
+                                                                 (LamAbs (n+4) (LamApp
+                                                                                (LamApp (LamVar (n+2))
+                                                                                 (LamVar (n+4)))
+                                                                                 (LamVar n))))))
+helpTransform _ (LamMacro x) = LamMacro x
 -- Examples in the instructions
-exId =  (LamAbs 1 (LamVar 1))
-ex5'1 = (LamApp (LamVar 1) (LamVar 2))
-ex5'2 = (LamDef [ ("F", exId) ] (LamVar 2) )
-ex5'3 = (LamDef [ ("F", exId) ] (LamMacro "F") )
-ex5'4 = (LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F")))
-
-
+exId =  LamAbs 1 (LamVar 1)
+ex5'1 = LamDef [] (LamApp (LamVar 1) (LamVar 2))
+ex5'2 = LamDef [ ("F", exId) ] (LamVar 2)
+ex5'3 = LamDef [ ("F", exId) ] (LamMacro "F")
+ex5'4 = LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F"))
+sfdsf = LamDef [] (LamAbs 3 (LamApp
+                             (LamAbs 4 (LamApp (LamVar 4) (LamVar 1)))
+                             (LamAbs 5 (LamApp
+                                        (LamAbs 6 (LamApp (LamVar 6) (LamVar 2)))
+                                        (LamAbs 7 (LamApp (LamApp
+                                                           (LamVar 5)
+                                                           (LamVar 7))
+                                                   (LamVar 3)))))))
 -- Challenge 6
 
-innerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
-innerRedn1 _ = Nothing
+-- | Inner reduction helper
+helpInnerRed :: LamExpr -> LamExpr
+helpInnerRed expr = case expr of
+                        (LamApp (LamAbs i expr1) expr2) -> helpInnerRed $ replaceVar (checkRev i expr2) expr1
+                        (LamAbs i remExpr) -> LamAbs i (helpInnerRed remExpr)
+                        _ -> expr
 
-outerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
-outerRedn1 _ = Nothing
+innerRedn1 :: LamMacroExpr -> Int -> Maybe LamMacroExpr
+innerRedn1 _ _ = Nothing
+
+-- | Outer reduction helper
+helpOuterRed :: LamExpr -> LamExpr
+helpOuterRed expr = case expr of
+                        (LamApp (LamAbs i expr1) expr2) -> replaceVar (checkRev i expr2) expr1
+                        (LamAbs i remExpr) -> LamAbs i (helpOuterRed remExpr)
+                        _ -> expr
+
+replaceVar :: (LamExpr -> LamExpr) -> LamExpr -> LamExpr
+replaceVar repFunc oldExpr = case oldExpr of
+                              (LamApp expr1 expr2) -> LamApp (replaceVar repFunc expr1) (replaceVar repFunc expr2)
+                              (LamAbs i expr) -> LamAbs i (replaceVar repFunc expr)
+                              _ -> repFunc oldExpr
+
+checkRev :: Int -> LamExpr -> LamExpr -> LamExpr
+checkRev oldVar newExpr (LamVar v) = if v == oldVar then newExpr else LamVar v
+checkRev _ _ oldExpr = oldExpr
+
+checkMacro :: String -> LamExpr -> LamExpr -> LamExpr
+checkMacro oldMac newExpr (LamMacro m) = if m == oldMac then newExpr else LamMacro m
+checkMacro _ _ oldExpr = oldExpr
+
+outerRedn1 :: LamMacroExpr -> Int -> Maybe LamMacroExpr
+outerRedn1 _ _ = Nothing
 
 compareInnerOuter :: LamMacroExpr -> Int -> (Maybe Int,Maybe Int,Maybe Int,Maybe Int)
 compareInnerOuter _ _ = (Nothing,Nothing,Nothing,Nothing)

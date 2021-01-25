@@ -103,6 +103,10 @@ space :: Parser ()
 space = do many (sat isSpace)
            return ()
 
+minSpace :: Parser ()
+minSpace = do some (sat isSpace)
+              return ()
+
 token :: Parser a -> Parser a
 token p = do space
              v <- p

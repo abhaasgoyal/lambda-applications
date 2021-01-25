@@ -13,6 +13,7 @@ module Challenges (WordSearchGrid,Placement,Posn,Orientation(..),solveWordSearch
 -- We import System.Random - make sure that your installation has it installed - use stack ghci and stack ghc
 import Data.Char
 import Data.Maybe
+import Data.Tuple
 import Parsing
 import Control.Monad
 import Data.List
@@ -167,12 +168,14 @@ createGrid :: Int -> Double -> WordSearchGrid
 createGrid maxLen density = replicate sideLen $ replicate sideLen '_'
   where
     sideLen :: Int
-    sideLen = ceiling (1.0 / (density - 0.01)) * maxLen
+    sideLen
+      | density < 1 = ceiling (1.0 / density) * maxLen
+      | otherwise = ceiling (1.0 / (density - 0.01)) * maxLen
 
 helpFillWord :: WordSearchGrid -> String -> IO WordSearchGrid
 helpFillWord currGrid word = do
-  seed <- newStdGen
-  let (randomOrientIndex, seed2) = randomR (0,7) seed :: (Int, StdGen)
+  (randomOrientIndex, seed2) <- fmap (randomR (0,7)) newStdGen
+
   let currOrient = ordOrient !! randomOrientIndex
   let strOrient  = fst $ strGridsWithPos currGrid !! randomOrientIndex
 
@@ -182,7 +185,7 @@ helpFillWord currGrid word = do
   let wordToBeChecked = take (length word) $ dropWhile (\(pos,chr) -> pos /= (xcoord, ycoord)) strOrient
 
   let acceptableWord = all (\(a,b) -> a == b || b == '_') (zip word $ map snd wordToBeChecked)
-  let newGrid = foldl replace currGrid (zip (findPos (xcoord,ycoord) currOrient word) word)
+  let newGrid = foldl replace currGrid $ zip (findPos (xcoord,ycoord) currOrient word) word
   if acceptableWord then
     return newGrid
   else
@@ -197,29 +200,32 @@ helpFillWord currGrid word = do
        return [if x == x' && y == y' then letter else r | (y,r) <- zip [0..] row]
 
 strGrids :: WordSearchGrid -> [String]
-strGrids grid = map (map snd . fst) (strGridsWithPos grid)
+strGrids = map (map snd . fst) . strGridsWithPos
 
 strGridsWithPos :: WordSearchGrid -> [(GridWithPos, Orientation)]
-strGridsWithPos grid = searchingTypes (borderedGrid grid)
+strGridsWithPos = searchingTypes . borderedGrid
 
 createWordSearch :: [ String ] -> Double -> IO WordSearchGrid
 createWordSearch wordList density = do
+  -- create empty grid
   let emptyGrid = createGrid (length $ maximumBy (Data.Ord.comparing length) wordList) density
+  -- A list of unique letters to fill in word search list consisting of letters from the given words
   let uniqueLetters = nub $ concat wordList
+  -- Fill with words and then random letters
   finalWordFill <- foldM helpFillWord emptyGrid wordList
   finalGrid <- mapM (mapM $ finalRandFill uniqueLetters) finalWordFill
-  let finalStrGrids = strGrids finalGrid
-  let strInstances = map (searchInstances finalStrGrids) wordList
+  let strInstances = map (searchInstances $ strGrids finalGrid) wordList
+  -- After filling the grid there should be only one string instance
   let correctGrid = all (==1) strInstances
   if correctGrid then
       return finalGrid
   else
-    createWordSearch wordList density
+  -- Start again
+      createWordSearch wordList density
 
 finalRandFill :: String -> Char -> IO Char
 finalRandFill letterRange x = do
-  seed <- newStdGen
-  let (randIdx, _) = randomR (0, length letterRange - 1) seed :: (Int, StdGen)
+  (randIdx, _) <- fmap (randomR (0, length letterRange - 1)) newStdGen
   if x == '_' then
     return (letterRange !! randIdx)
   else
@@ -229,7 +235,7 @@ finalRandFill letterRange x = do
 createAndSolve :: [ String ] -> Double -> IO [ (String, Maybe Placement) ]
 createAndSolve words maxDensity =   do g <- createWordSearch words maxDensity
                                        let soln = solveWordSearch words g
-                                       printGrid' g
+                                       printGrid g
                                        return soln
 
 printGrid :: WordSearchGrid -> IO ()
@@ -237,13 +243,77 @@ printGrid [] = return ()
 printGrid (w:ws) = do putStrLn w
                       printGrid ws
 
+-- | Print grid with borders
 printGrid' :: WordSearchGrid -> IO ()
 printGrid' grid = printGrid $ borderedGrid grid
 
 -- Challenge 3 --
 
+-- data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read,Generic)
+-- data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
+--                LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read,Generic)
+
+printVar :: Int -> String
+printVar i = 'x':show i
+
+printAbs :: Int -> String
+printAbs i = "/" ++ printVar i ++ "->"
+
+abstractExpr :: LamExpr -> [(String,LamExpr)] -> String
+abstractExpr expr macros = case expr of
+                      LamVar x -> printVar x
+                      LamAbs x remExpr -> printAbs x ++ " " ++ abstractExpr remExpr macros
+                      LamMacro str -> str
+                      LamApp expr1@(LamAbs _ _) expr2 -> printBracketedExpr expr1 ++ " " ++ abstractExpr expr2 macros
+                      LamApp expr1 expr2@(LamApp _ _) -> printExpr expr1  ++ "(" ++ abstractExpr expr2 macros ++ ")"
+                      LamApp expr1 expr2 -> printExpr expr1 ++ " " ++ printExpr expr2
+  where
+    printBracketedExpr :: LamExpr -> String
+    printBracketedExpr remExpr
+      | isNothing $ advLookUpExpr remExpr = "(" ++ printedExpr ++ ")"
+--      Note that after testing if less testcases replace below with above
+--      | isNothing $ lookUpExpr remExpr = "(" ++ printedExpr ++ ")"
+      | otherwise = printedExpr
+      where
+        printedExpr = printExpr remExpr
+
+    printExpr :: LamExpr -> String
+    printExpr remExpr = findMacro remExpr
+
+    findMacro :: LamExpr -> String
+    findMacro remExpr
+     | isNothing $ advLookUpExpr remExpr  = abstractExpr remExpr macros
+     | otherwise = fst $ fromMaybe ("Illegal Macro", LamVar (-1)) $ advLookUpExpr remExpr
+--      Note that after testing if less testcases replace below 2 lines with above 2 lines
+--      | isNothing $ lookUpExpr remExpr  = abstractExpr remExpr macros
+--      | otherwise = fromMaybe "Illegal Macro" $ lookUpExpr remExpr
+
+    lookUpExpr :: LamExpr -> Maybe String
+    lookUpExpr remExpr = lookup remExpr (map swap macros)
+
+    advLookUpExpr :: LamExpr -> Maybe (String, LamExpr)
+    advLookUpExpr exp1 = find (\(str,exp2) -> eqSyntaxExpr [] exp1 exp2) macros
+
+-- | Checks whether 2 expressions are syntactically equal
+eqSyntaxExpr :: [(Int, Int)] -> LamExpr -> LamExpr -> Bool
+eqSyntaxExpr varLookUp expr1 expr2 = case (expr1,expr2) of
+                                       (LamVar x,LamVar y) -> checkEq x y
+                                       (LamApp e1 e2, LamApp e3 e4) -> eqSyntaxExpr varLookUp e1 e3 && eqSyntaxExpr varLookUp e2 e4
+                                       (LamAbs i1 e1, LamAbs i2 e2) -> checkEq i1 i2 || eqSyntaxExpr  (nub $ (i1,i2):varLookUp) e1 e2
+                                       (LamMacro s1, LamMacro s2) -> s1 == s2
+                                       _ -> False
+   where
+     checkEq :: Int -> Int -> Bool
+     checkEq a b = a == b || lookUpInt a b
+
+     lookUpInt :: Int -> Int -> Bool
+     lookUpInt a b = fromMaybe (-1) (lookup a varLookUp) == b
+
 prettyPrint :: LamMacroExpr -> String
-prettyPrint _ = ""
+prettyPrint (LamDef defs expr) = concatMap helpPrintDef defs ++ abstractExpr expr defs
+  where
+    helpPrintDef :: (String, LamExpr) -> String
+    helpPrintDef (macro, expr) = "def " ++ macro ++ "=" ++ abstractExpr expr [] ++ " in "
 
 -- examples in the instructions
 ex3'1 = LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))

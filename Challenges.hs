@@ -7,7 +7,7 @@
 -- DO NOT MODIFY THE FOLLOWING LINES OF CODE
 module Challenges (WordSearchGrid,Placement,Posn,Orientation(..),solveWordSearch, createWordSearch,
     LamMacroExpr(..),LamExpr(..),prettyPrint, parseLamMacro,
-    cpsTransform,innerRedn1,outerRedn1,compareInnerOuter) where
+    cpsTransform,innerRedn1,outerRedn1,compareInnerOuter, correctGrid) where
 
 -- Import standard library and parsing definitions from Hutton 2016, Chapter 13
 -- We import System.Random - make sure that your installation has it installed - use stack ghci and stack ghc
@@ -130,12 +130,6 @@ unborderedGrid grid = map (init . tail) (init $ tail grid)
 
 -- Two examples for you to try out, the first of which is in the instructions
 
-exGrid1'1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ]
-exWords1'1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]
-
-exGrid1'2 = ["ROBREUMBR","AURPEPSAN","UNLALMSEE","YGAUNPYYP","NLMNBGENA","NBLEALEOR","ALRYPBBLG","NREPBEBEP","YGAYAROMR"]
-exWords1'2 = [ "BANANA", "ORANGE", "MELON", "RASPBERRY","APPLE","PLUM","GRAPE" ]
-
 testDiag1'1 = "HSAGAGMCCNEGSAITKHTGRINNKAETMRILMCTSGAAREIKAHIMATTLEKZRHLGKLKOCECIDSLTNDASENGRRDG"
 
 -- Challenge 2 --
@@ -229,14 +223,18 @@ createWordSearch wordList density = do
   -- Fill with words and then random letters
   finalWordFill <- foldM helpFillWord emptyGrid wordList
   finalGrid <- mapM (mapM $ finalRandFill uniqueLetters) finalWordFill
-  let strInstances = map (searchInstances $ strGrids finalGrid) wordList
-  -- After filling the grid there should be only one string instance
-  let correctGrid = all (==1) strInstances
-  if correctGrid then
+  if correctGrid finalGrid wordList then
       return finalGrid
   else
   -- Start again
       createWordSearch wordList density
+
+-- | After filling the grid there should be only one string instance in any orientation
+correctGrid :: WordSearchGrid -> [String] -> Bool
+correctGrid grid wordList = all (==1) strInstances
+  where
+    strInstances :: [Int]
+    strInstances = map (searchInstances $ strGrids grid) wordList
 
 -- | After the grid has been filled with words fill other positions with random characters
 finalRandFill :: String -> Char -> IO Char
@@ -271,13 +269,13 @@ printVar i = 'x':show i
 
 -- | prettyPrint LamAbsVar
 printAbs :: Int -> String
-printAbs i = "/" ++ printVar i ++ "->"
+printAbs i = "\\" ++ printVar i ++ "->"
 
 -- | Given an expression and macros return pretty printed string
 abstractExpr :: LamExpr -> [(String,LamExpr)] -> String
 abstractExpr expr macros = case expr of
                       LamVar x -> printVar x
-                      LamAbs x remExpr -> printAbs x ++ " " ++ abstractExpr remExpr macros
+                      LamAbs x remExpr -> printAbs x ++ abstractExpr remExpr macros
                       LamMacro str -> str
                       LamApp expr1@(LamAbs _ _) expr2 -> printBracketedExpr expr1 ++ " " ++ abstractExpr expr2 macros
                       LamApp expr1 expr2@(LamApp _ _) -> printExpr expr1  ++ "(" ++ abstractExpr expr2 macros ++ ")"
@@ -326,13 +324,6 @@ prettyPrint (LamDef defs expr) = concatMap helpPrintDef defs ++ abstractExpr exp
     helpPrintDef :: (String, LamExpr) -> String
     helpPrintDef (macro, expr) = "def " ++ macro ++ "=" ++ abstractExpr expr [] ++ " in "
 
--- examples in the instructions
-ex3'1 = LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))
-ex3'2 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))
-ex3'3 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))
-ex3'4 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))
-ex3'5 = LamDef [] (LamApp (LamVar 1) (LamApp (LamVar 3) (LamVar 4)))
-
 -- Challenge 4 --
 
 -- data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read,Generic)
@@ -344,6 +335,9 @@ parseMacroExpr = do
   defs <- parseDefs []
   expr <- parseExpr
   return (LamDef defs expr)
+  <|> do
+  expr <- parseExpr
+  return (LamDef [] expr)
 
 parseDefs :: [(String, LamExpr)] -> Parser [(String, LamExpr)]
 parseDefs defs = do
@@ -423,13 +417,14 @@ newVarGen a = maximum a + 1
 
 -- | List of usedVariables
 listUsedVar :: LamMacroExpr -> [Int]
-listUsedVar (LamDef defs expr) = nub $ concatMap (helpList . snd) defs ++ helpList expr
-  where
-    helpList :: LamExpr -> [Int]
-    helpList (LamVar x) = [x]
-    helpList (LamMacro _) = []
-    helpList (LamAbs i expr) = i:helpList expr
-    helpList (LamApp expr1 expr2) = helpList expr1 ++ helpList expr2
+listUsedVar (LamDef defs expr) = nub $ concatMap (helpUsedVar . snd) defs ++ helpUsedVar expr
+
+helpUsedVar :: LamExpr -> [Int]
+helpUsedVar expr = case expr of
+                     (LamVar x) -> [x]
+                     (LamMacro _) -> []
+                     (LamAbs i expr) -> i:helpUsedVar expr
+                     (LamApp expr1 expr2) -> helpUsedVar expr1 ++ helpUsedVar expr2
 
 -- | Main function for transforming in cps
 cpsTransform :: LamMacroExpr -> LamMacroExpr
@@ -450,11 +445,6 @@ helpTransform n (LamApp expr1 expr2) = LamAbs n (LamApp (helpTransform (n+1) exp
                                                                                  (LamVar n))))))
 helpTransform _ (LamMacro x) = LamMacro x
 -- Examples in the instructions
-exId =  LamAbs 1 (LamVar 1)
-ex5'1 = LamDef [] (LamApp (LamVar 1) (LamVar 2))
-ex5'2 = LamDef [ ("F", exId) ] (LamVar 2)
-ex5'3 = LamDef [ ("F", exId) ] (LamMacro "F")
-ex5'4 = LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F"))
 sfdsf = LamDef [] (LamAbs 3 (LamApp
                              (LamAbs 4 (LamApp (LamVar 4) (LamVar 1)))
                              (LamAbs 5 (LamApp
@@ -465,22 +455,101 @@ sfdsf = LamDef [] (LamAbs 3 (LamApp
                                                    (LamVar 3)))))))
 -- Challenge 6
 
--- | Inner reduction helper
-helpInnerRed :: LamExpr -> LamExpr
-helpInnerRed expr = case expr of
-                        (LamApp (LamAbs i expr1) expr2) -> helpInnerRed $ replaceVar (checkRev i expr2) expr1
-                        (LamAbs i remExpr) -> LamAbs i (helpInnerRed remExpr)
-                        _ -> expr
+merge :: Ord a => [a] -> [a] -> [a]
+merge xs ys = nub $ xs ++ ys
 
-innerRedn1 :: LamMacroExpr -> Int -> Maybe LamMacroExpr
-innerRedn1 _ _ = Nothing
+
+rename :: Int -> Int -> LamExpr -> LamExpr
+rename x y (LamVar z)
+  | z == x = LamVar y
+  | otherwise = LamVar z
+rename x y (LamAbs z m)
+  | z == x = LamAbs z m
+  | otherwise = LamAbs z (rename x y m)
+rename x y (LamApp m n) = LamApp (rename x y m) (rename x y n)
+
+
+substituteVar :: Int -> LamExpr -> LamExpr -> LamExpr
+substituteVar x n (LamVar y)
+  | y == x = n
+  | otherwise = LamVar y
+substituteVar x n (LamAbs y m)
+  | y == x = LamAbs y m
+  | otherwise = LamAbs genZ (substituteVar x n $ rename y genZ m) ----
+  where
+    genZ :: Int
+    genZ = head $ merge (helpUsedVar m) (helpUsedVar n)
+
+    checkZ :: [Int] -> Int
+    checkZ list
+      | newZ list == x = newZ (x:list)
+      | otherwise = newZ list
+    newZ :: [Int] -> Int
+
+    newZ list = newVarGen list
+substituteVar x n (LamApp m1 m2) = LamApp (substituteVar x n m1) (substituteVar x n m2)
+
+  -- | Inner reduction helper
+helpInner :: [(String, LamExpr)] -> LamExpr -> [LamExpr]
+helpInner macros (LamApp (LamAbs z n) m) =    [LamApp (LamAbs z xs) m | xs <- helpInner macros n] ++
+                                       [LamApp (LamAbs z n) ys | ys <- helpInner macros m] ++
+                                       [LamApp (LamAbs z n) zs | zs <- checkMacro macros m] ++
+                                       [substituteVar z m n]
+helpInner macros (LamApp n m) = [LamApp xs m | xs <- helpInner macros n] ++
+                            [LamApp n ys | ys <- helpInner macros m]
+helpInner macros (LamAbs n m) = [LamAbs n xs | xs <- helpInner macros m]
+helpInner macros expr@(LamMacro m) = checkMacro macros expr
+helpInner macros _ = []
+
+-- helpInner macros expr = case expr of
+--                         (LamApp (LamAbs i expr1) expr2) -> helpInner macros $ replaceVar (checkRev i expr2) expr1
+--                         (LamAbs i remExpr) -> LamAbs i (helpInner macros remExpr)
+--                         _ -> expr
+-- normalize :: Term -> [Term]
+-- normalize term = case b of
+--                    [] -> [term]
+--                    _  -> term:normalize (head b)
+--    where
+--      b :: [Term]
+--      b = beta term
+
+-- normal :: Term -> Term
+-- normal term = last $ normalize term
+
+checkMacro :: [(String,LamExpr)] -> LamExpr -> [LamExpr]
+checkMacro macros (LamMacro m)
+  | isJust foundMacro = [fromJust foundMacro]
+  | otherwise = []
+  where
+    foundMacro :: Maybe LamExpr
+    foundMacro = lookup m macros
+checkMacro _ _ = []
+
+innerRedn1 :: LamMacroExpr ->  Maybe LamMacroExpr
+innerRedn1 (LamDef macros expr)
+  | null reducedExp = Nothing
+  | otherwise = Just (LamDef macros (head reducedExp))
+  where
+    reducedExp = helpInner macros expr
 
 -- | Outer reduction helper
-helpOuterRed :: LamExpr -> LamExpr
-helpOuterRed expr = case expr of
-                        (LamApp (LamAbs i expr1) expr2) -> replaceVar (checkRev i expr2) expr1
-                        (LamAbs i remExpr) -> LamAbs i (helpOuterRed remExpr)
-                        _ -> expr
+helpOuter :: [(String, LamExpr)] -> LamExpr -> [LamExpr]
+helpOuter macros (LamApp (LamAbs z n) m) = [LamApp (LamAbs z n) zs | zs <- checkMacro macros m] ++
+                                    [substituteVar z m n] ++
+                                    [LamApp (LamAbs z xs) m | xs <- helpOuter macros n] ++
+                                    [LamApp (LamAbs z n) ys | ys <- helpOuter macros m]
+
+helpOuter macros (LamApp n m) = [LamApp xs m | xs <- helpOuter macros n] ++
+                            [LamApp n ys | ys <- helpOuter macros m]
+helpOuter macros (LamAbs n m) = [LamAbs n xs | xs <- helpOuter macros m]
+helpOuter macros expr@(LamMacro m) = checkMacro macros expr
+helpOuter macros _ = []
+
+-- helpOuter macrosRed :: LamExpr -> LamExpr
+-- helpOuter macrosRed expr = case expr of
+--                         (LamApp (LamAbs i expr1) expr2) -> replaceVar (checkRev i expr2) expr1
+--                         (LamAbs i remExpr) -> LamAbs i (helpOuter macrosRed remExpr)
+--                         _ -> expr
 
 replaceVar :: (LamExpr -> LamExpr) -> LamExpr -> LamExpr
 replaceVar repFunc oldExpr = case oldExpr of
@@ -492,36 +561,40 @@ checkRev :: Int -> LamExpr -> LamExpr -> LamExpr
 checkRev oldVar newExpr (LamVar v) = if v == oldVar then newExpr else LamVar v
 checkRev _ _ oldExpr = oldExpr
 
-checkMacro :: String -> LamExpr -> LamExpr -> LamExpr
-checkMacro oldMac newExpr (LamMacro m) = if m == oldMac then newExpr else LamMacro m
-checkMacro _ _ oldExpr = oldExpr
+-- checkMacro :: String -> LamExpr -> LamExpr -> LamExpr
+-- checkMacro oldMac newExpr (LamMacro m) = if m == oldMac then newExpr else LamMacro m
+-- checkMacro _ _ oldExpr = oldExpr
 
-outerRedn1 :: LamMacroExpr -> Int -> Maybe LamMacroExpr
-outerRedn1 _ _ = Nothing
+outerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
+outerRedn1 (LamDef macros expr)
+  | null reducedExp = Nothing
+  | otherwise = Just (LamDef macros (head reducedExp))
+  where
+    reducedExp = helpOuter macros expr
+
 
 compareInnerOuter :: LamMacroExpr -> Int -> (Maybe Int,Maybe Int,Maybe Int,Maybe Int)
-compareInnerOuter _ _ = (Nothing,Nothing,Nothing,Nothing)
+compareInnerOuter mainExpr bound = (checkBounds $ reducedExp mainExpr innerRedn1,
+                                    checkBounds $ reducedExp mainExpr outerRedn1,
+                                    checkBounds $ reducedExp cpsExp innerRedn1,
+                                    checkBounds $ reducedExp cpsExp outerRedn1)
+  where
 
--- Examples in the instructions
+    cpsExp :: LamMacroExpr
+    cpsExp = cpsTransform mainExpr
 
--- (\x1 -> x1 x2)
-ex6'1 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamVar 2)))
 
---  def F = \x1 -> x1 in F
-ex6'2 = LamDef [ ("F",exId) ] (LamMacro "F")
+    reducedExp :: LamMacroExpr -> (LamMacroExpr -> Maybe LamMacroExpr) -> Int
+    reducedExp expr redStrat = length . take bound . takeWhile isJust $ iterateExpr expr
+      where
+        iterateExpr :: LamMacroExpr -> [Maybe LamMacroExpr]
+        iterateExpr redExpr
+          | isNothing reducedExpr = []
+          | otherwise = reducedExpr:(iterateExpr . fromJust $ reducedExpr)
+            where
+              reducedExpr = redStrat expr
 
---  (\x1 -> x1) (\x2 -> x2)
-ex6'3 = LamDef [] ( LamApp exId (LamAbs 2 (LamVar 2)))
-
---  (\x1 -> x1 x1)(\x1 -> x1 x1)
-wExp = (LamAbs 1 (LamApp (LamVar 1) (LamVar 1)))
-ex6'4 = LamDef [] (LamApp wExp wExp)
-
---  def ID = \x1 -> x1 in def FST = (\x1 -> λx2 -> x1) in FST x3 (ID x4)
-ex6'5 = LamDef [ ("ID",exId) , ("FST",LamAbs 1 (LamAbs 2 (LamVar 1))) ] ( LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp (LamMacro "ID") (LamVar 4)))
-
---  def FST = (\x1 -> λx2 -> x1) in FST x3 ((\x1 ->x1) x4))
-ex6'6 = LamDef [ ("FST", LamAbs 1 (LamAbs 2 (LamVar 1)) ) ]  ( LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp (exId) (LamVar 4)))
-
--- def ID = \x1 -> x1 in def SND = (\x1 -> λx2 -> x2) in SND ((\x1 -> x1 x1) (\x1 -> x1 x1)) ID
-ex6'7 = LamDef [ ("ID",exId) , ("SND",LamAbs 1 (LamAbs 2 (LamVar 2))) ]  (LamApp (LamApp (LamMacro "SND") (LamApp wExp wExp) ) (LamMacro "ID") )
+    checkBounds :: Int -> Maybe Int
+    checkBounds a
+      | a > bound = Nothing
+      | otherwise = Just a

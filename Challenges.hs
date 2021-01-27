@@ -367,29 +367,25 @@ parseDef = do
   return (x, expr)
 
 parseExpr :: Parser LamExpr
-parseExpr = parseApp <|> parseExprWOApp
-
-parseExprWOApp :: Parser LamExpr
-parseExprWOApp = parseBrac <|> parseVar <|> parseMacro <|> parseAbs
+parseExpr = parseBrac <|> parseVar <|> parseMacro <|> parseAbs
 
 parseVar :: Parser LamExpr
 parseVar = do
   char 'x'
   var <- nat
-  return (LamVar var)
+  parseApp (LamVar var)
 
 parseMacro :: Parser LamExpr
 parseMacro = do
   x <- some upper
-  return (LamMacro x)
+  parseApp (LamMacro x)
 
-parseApp :: Parser LamExpr
-parseApp = do
-  expr1 <- parseExprWOApp
-  do
-    expr2 <- parseExprWOApp
-    return (LamApp expr1 expr2)
-    <|> return expr1
+parseApp :: LamExpr -> Parser LamExpr
+parseApp expr1 = do
+  space
+  expr2 <- parseExpr
+  return (LamApp expr1 expr2)
+  <|> return expr1
 
 parseAbs :: Parser LamExpr
 parseAbs = do
@@ -398,19 +394,46 @@ parseAbs = do
   let (LamVar var) = lamVar
   symbol "->"
   expr <- parseExpr
-  return (LamAbs var expr)
+  parseApp (LamAbs var expr)
 
 parseBrac :: Parser LamExpr
 parseBrac = do
   char '('
   expr <- parseExpr
   char ')'
-  return expr
+  parseApp expr
 
 parseLamMacro :: String -> Maybe LamMacroExpr
 parseLamMacro str = case parse parseMacroExpr str of
                       [] -> Nothing
-                      (x,str):_ -> Just x
+                      (x,""):_ -> if checkMacroExpr x then Just x else Nothing
+                      _ -> Nothing
+
+checkMacroExpr :: LamMacroExpr -> Bool
+checkMacroExpr (LamDef defs expr) = nub macroStrList == macroStrList && macroCheckScope
+  where
+    macroStrList :: [String]
+    macroStrList = map fst defs
+
+    macroCheckScope :: Bool
+    macroCheckScope = all (checkScope [] . snd) defs
+
+checkScope :: [Int] -> LamExpr -> Bool
+checkScope xs expr = case expr of
+                    (LamVar x) -> x `elem` xs
+                    (LamMacro _) -> True
+                    (LamAbs i remExpr) -> checkScope (i:xs) remExpr
+                    (LamApp expr1 expr2) -> checkScope xs expr1 && checkScope xs expr2
+
+usedVarAbs :: LamExpr -> [Int]
+usedVarAbs mainExpr = nub $ helpUsedVar mainExpr
+  where
+    helpUsedVar :: LamExpr -> [Int]
+    helpUsedVar lamExpr = case lamExpr of
+                         (LamVar x) -> [x]
+                         (LamMacro _) -> []
+                         (LamAbs i remExpr) -> i:helpUsedVar remExpr
+                         (LamApp expr1 expr2) -> helpUsedVar expr1 ++ helpUsedVar expr2
 
 -- Challenge 5
 
@@ -420,14 +443,7 @@ newVarGen a = maximum a + 1
 
 -- | List of usedVariables
 listUsedVar :: LamMacroExpr -> [Int]
-listUsedVar (LamDef defs expr) = nub $ concatMap (helpUsedVar . snd) defs ++ helpUsedVar expr
-
-helpUsedVar :: LamExpr -> [Int]
-helpUsedVar expr = case expr of
-                     (LamVar x) -> [x]
-                     (LamMacro _) -> []
-                     (LamAbs i expr) -> i:helpUsedVar expr
-                     (LamApp expr1 expr2) -> helpUsedVar expr1 ++ helpUsedVar expr2
+listUsedVar (LamDef defs expr) = nub $ concatMap (usedVarAbs . snd) defs ++ usedVarAbs expr
 
 -- | Main function for transforming in cps
 cpsTransform :: LamMacroExpr -> LamMacroExpr
@@ -485,7 +501,7 @@ substituteVar x n (LamAbs y m)
   | otherwise = LamAbs genZ (substituteVar x n $ rename y genZ m) ----
   where
     genZ :: Int
-    genZ = head $ merge (helpUsedVar m) (helpUsedVar n)
+    genZ = checkZ $ merge (usedVarAbs m) (usedVarAbs n)
 
     checkZ :: [Int] -> Int
     checkZ list

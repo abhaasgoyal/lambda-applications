@@ -126,10 +126,10 @@ testRed = Test
               assertEq (compareInnerOuter ex6'1 6) (Just 0, Just 0, Just 6, Just 6),
               assertEq (compareInnerOuter ex6'2 10) (Just 1, Just 1, Just 3, Just 3),
               assertEq (compareInnerOuter ex6'3 10) (Just 1, Just 1, Just 8, Just 8),
-              assertEq (compareInnerOuter ex6'4 10) (Nothing, Nothing, Nothing, Nothing), --
+              assertEq (compareInnerOuter ex6'4 100) (Nothing, Nothing, Nothing, Nothing),
               assertEq (compareInnerOuter ex6'1 30) (Just 0, Just 0, Just 6, Just 6), --
-              assertEq (compareInnerOuter ex6'1 30) (Just 0, Just 0, Just 6, Just 6), --
-              assertEq (compareInnerOuter ex6'7 10) (Nothing, Just 4, Nothing, Nothing) --
+              assertEq (compareInnerOuter ex6'6 30) (Just 4, Just 3, Just 21, Just 21),
+              assertEq (compareInnerOuter ex6'7 1000) (Nothing, Just 4, Nothing, Nothing)
                     ])
 exGrid1'1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ]
 exWords1'1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]

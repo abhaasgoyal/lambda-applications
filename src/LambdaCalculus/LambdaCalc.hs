@@ -4,7 +4,6 @@ import Types
 import Parsing
 import Data.Maybe
 import Data.List
-import Data.Tuple
 
 printVar :: Int -> String
 printVar i = 'x':show i
@@ -26,23 +25,16 @@ abstractExpr expr macros = case expr of
     printBracketedExpr :: LamExpr -> String
     printBracketedExpr remExpr
       | isNothing $ advLookUpExpr remExpr = "(" ++ printExpr remExpr ++ ")"
---      Note that after testing if less testcases replace below with above
---      | isNothing $ lookUpExpr remExpr = "(" ++ printedExpr ++ ")"
       | otherwise = printExpr remExpr
 
     printExpr :: LamExpr -> String
     printExpr remExpr
      | isNothing $ advLookUpExpr remExpr  = abstractExpr remExpr macros
      | otherwise = fst $ fromMaybe ("Illegal Macro", LamVar (-1)) $ advLookUpExpr remExpr
---      Note that after testing if less testcases replace below 2 lines with above 2 lines
---      | isNothing $ lookUpExpr remExpr  = abstractExpr remExpr macros
---      | otherwise = fromMaybe "Illegal Macro" $ lookUpExpr remExpr
 
-    lookUpExpr :: LamExpr -> Maybe String
-    lookUpExpr remExpr = lookup remExpr (map swap macros)
 
     advLookUpExpr :: LamExpr -> Maybe (String, LamExpr)
-    advLookUpExpr exp1 = find (\(str,exp2) -> eqSyntaxExpr [] exp1 exp2) macros
+    advLookUpExpr exp1 = find (\(_,exp2) -> eqSyntaxExpr [] exp1 exp2) macros
 
 -- | Checks whether 2 expressions are syntactically equal
 eqSyntaxExpr :: [(Int, Int)] -> LamExpr -> LamExpr -> Bool
@@ -65,9 +57,9 @@ eqSyntaxExpr varLookUp expr1 expr2 = case (expr1,expr2) of
 -- | Main function for pretty printing
 prettyPrint :: LamMacroExpr -> String
 prettyPrint (LamDef defs expr) = concatMap helpPrintDef defs ++ abstractExpr expr defs
-  where
-    helpPrintDef :: (String, LamExpr) -> String
-    helpPrintDef (macro, expr) = "def " ++ macro ++ "=" ++ abstractExpr expr [] ++ " in "
+
+helpPrintDef :: (String, LamExpr) -> String
+helpPrintDef (macro, expr) = "def " ++ macro ++ "=" ++ abstractExpr expr [] ++ " in "
 
 -- Challenge 4 --
 
@@ -150,7 +142,7 @@ parseLamMacro str = case parse parseMacroExpr str of
 
 -- | Additional checks for repeated macro names or macros having free variables
 checkMacroExpr :: LamMacroExpr -> Bool
-checkMacroExpr (LamDef defs expr) = nub macroStrList == macroStrList && macroCheckScope
+checkMacroExpr (LamDef defs _) = nub macroStrList == macroStrList && macroCheckScope
   where
     macroStrList :: [String]
     macroStrList = map fst defs
@@ -160,9 +152,10 @@ checkMacroExpr (LamDef defs expr) = nub macroStrList == macroStrList && macroChe
 
 checkScope :: [Int] -> LamExpr -> Bool
 checkScope xs expr = case expr of
-                    (LamVar x) -> x `elem` xs
-                    (LamMacro _) -> True
-                    (LamAbs i remExpr) -> checkScope (i:xs) remExpr
-                    (LamApp expr1 expr2) -> checkScope xs expr1 && checkScope xs expr2
+                       (LamVar x) -> x `elem` xs
+                       (LamMacro _) -> True
+                       (LamAbs i remExpr) -> checkScope (i:xs) remExpr
+                       (LamApp expr1 expr2) -> checkScope xs expr1 &&
+                                               checkScope xs expr2
 
 

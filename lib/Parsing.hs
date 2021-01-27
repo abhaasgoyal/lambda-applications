@@ -45,7 +45,7 @@ instance Monad Parser where
 
 instance Alternative Parser where
    -- empty :: Parser a
-   empty = P (\inp -> [])
+   empty = P (const [])
 
    -- (<|>) :: Parser a -> Parser a -> Parser a
    p <|> q = P (\inp -> case parse p inp of

@@ -109,8 +109,8 @@ helpInner macros (LamApp n m) =
                             [LamApp n ys | ys <- helpInner macros m]
 
 helpInner macros (LamAbs n m) = [LamAbs n xs | xs <- helpInner macros m]
-helpInner macros expr@(LamMacro m) = checkMacro macros expr
-helpInner macros _ = []
+helpInner macros expr@(LamMacro _) = checkMacro macros expr
+helpInner _ _ = []
 
 -- | Main inner reduction function
 innerRedn1 :: LamMacroExpr ->  Maybe LamMacroExpr
@@ -136,8 +136,8 @@ helpOuter macros (LamApp n m) =
                             [LamApp n ys | ys <- helpOuter macros m]
 
 helpOuter macros (LamAbs n m) = [LamAbs n xs | xs <- helpOuter macros m]
-helpOuter macros expr@(LamMacro m) = checkMacro macros expr
-helpOuter macros _ = []
+helpOuter macros expr@(LamMacro _) = checkMacro macros expr
+helpOuter _ _ = []
 
 -- | Main outer reduction function
 outerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr

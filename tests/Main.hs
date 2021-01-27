@@ -1,9 +1,9 @@
--- | Test Runner
+-- | Main module for testing
 
 module Main where
 
 import Tests
-
+import System.Exit
 
 main :: IO ()
 main = do
@@ -11,5 +11,4 @@ main = do
   testCreatedGrid "Test Creation1" exWords1'1 0.3
   runTests test2
   exitSuccess
-
 

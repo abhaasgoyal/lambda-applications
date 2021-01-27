@@ -61,9 +61,12 @@ ordOrient = [Forward, Back, Down, Up, UpForward, DownBack, DownForward, UpBack]
 
 -- | Main function to solve word search
 solveWordSearch :: [ String ] -> WordSearchGrid -> [ (String,Maybe Placement) ]
-solveWordSearch words grid = map (\word -> ( word,
+solveWordSearch wordList grid = map (\word -> ( word,
                                              foldl
-                                             (helpSolveWordSearch word) Nothing (searchingTypes $ borderedGrid grid))) words
+                                             (helpSolveWordSearch word)
+                                             Nothing
+                                             (searchingTypes $ borderedGrid grid)))
+                                wordList
   where
 
     helpSolveWordSearch ::  String -> Maybe Placement -> (GridWithPos, Orientation) -> Maybe Placement
@@ -73,7 +76,6 @@ solveWordSearch words grid = map (\word -> ( word,
       where
         foundType :: Maybe Placement
         foundType = search word searchType
-    gridLen = length grid
 
 -- | Create a bordered grid for when converted to string then continuous -'s aren't used
 borderedGrid :: WordSearchGrid -> WordSearchGrid
@@ -105,7 +107,7 @@ findPos (x,y) orient word = zip x_r y_r
     (x_r, y_r, _) = posRange
 
     posRange :: ([Int], [Int], Orientation)
-    posRange = head $ dropWhile (\(x_r, y_r, otype) -> orient /= otype) posList
+    posRange = head $ dropWhile (\(_, _, otype) -> orient /= otype) posList
 
     posList :: [([Int],[Int], Orientation)]
     posList = zip3 [forward, back, x_s, x_s, forward, back, forward, back]
@@ -142,7 +144,7 @@ helpFillWord currGrid word = do
   -- Choose Random point
   let [xcoord, ycoord] = take 2 $ randomRs (1,gridLen-2) seed2
   -- Checking eligibility of the word
-  let wordToBeChecked = take (length word) $ dropWhile (\(pos,chr) -> pos /= (xcoord, ycoord)) strOrient
+  let wordToBeChecked = take (length word) $ dropWhile (\(pos,_) -> pos /= (xcoord, ycoord)) strOrient
   let acceptableWord = all (\(a,b) -> a == b || b == '_') (zip word $ map snd wordToBeChecked)
   -- Filling new grid in case correct grid is formed
   let newGrid = foldl replace currGrid $ zip (findPos (xcoord,ycoord) currOrient word) word
@@ -183,14 +185,16 @@ createWordSearch wordList density = do
   -- Start again
       createWordSearch wordList density
 
--- | After filling the grid there should be only one string instance in any orientation
+-- | After filling the grid there should be only one string instance
+--   in any orientation
 correctGrid :: WordSearchGrid -> [String] -> Bool
 correctGrid grid wordList = all (==1) strInstances
   where
     strInstances :: [Int]
     strInstances = map (searchInstances $ strGrids grid) wordList
 
--- | After the grid has been filled only with words fill other positions with random characters
+-- | After the grid has been filled only with words fill other
+--   positions with random characters
 finalRandFill :: String -> Char -> IO Char
 finalRandFill letterRange x = do
   (randIdx, _) <- fmap (randomR (0, length letterRange - 1)) newStdGen
@@ -201,10 +205,10 @@ finalRandFill letterRange x = do
 
 --- Convenience functions supplied for testing purposes
 createAndSolve :: [ String ] -> Double -> IO [ (String, Maybe Placement) ]
-createAndSolve words maxDensity =   do g <- createWordSearch words maxDensity
-                                       let soln = solveWordSearch words g
-                                       printGrid g
-                                       return soln
+createAndSolve wordList maxDensity =   do g <- createWordSearch wordList maxDensity
+                                          let soln = solveWordSearch wordList g
+                                          printGrid g
+                                          return soln
 
 printGrid :: WordSearchGrid -> IO ()
 printGrid [] = return ()

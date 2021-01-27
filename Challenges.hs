@@ -338,9 +338,7 @@ parseMacroExpr = do
   def <- parseDef
   (LamDef defs expr) <- parseMacroExpr
   return (LamDef (def:defs) expr)
-  <|> do
-  expr <- parseExpr
-  return (LamDef [] expr)
+  <|> LamDef [] <$> parseExpr
 
 parseDef :: Parser (String, LamExpr)
 parseDef = do
@@ -358,38 +356,36 @@ parseDef = do
   return (x, expr)
 
 parseExpr :: Parser LamExpr
-parseExpr = parseExprWOBrac <|> parseBrac
+parseExpr = parseApp <|> parseExprWOApp
 
-parseExprWOBrac :: Parser LamExpr
-parseExprWOBrac = parseVar <|> parseMacro <|> parseAbs
+parseExprWOApp :: Parser LamExpr
+parseExprWOApp = parseVar <|> parseMacro <|> parseAbs <|> parseBrac
 
 parseVar :: Parser LamExpr
 parseVar = do
   char 'x'
   var <- nat
-  parseApp (LamVar var)
+  return (LamVar var)
 
--- TODO : prettyPrint $ fromJust $ parseLamMacro $ "x1 (x2 x3) x4"
 parseMacro :: Parser LamExpr
 parseMacro = do
   x <- some upper
-  parseApp (LamMacro x)
+  return (LamMacro x)
 
-parseApp :: LamExpr -> Parser LamExpr
-parseApp expr1 = do
-  expr2 <- parseBrac
-  return (LamApp expr1 expr2)
-  <|> do
+parseApp :: Parser LamExpr
+parseApp = do
   space
-  expr2 <- parseExprWOBrac
-  return (changeLapp expr1 expr2)
-  <|>
-    return expr1
+  expr1 <- parseExprWOApp
+  space
+  expr2 <- parseExprWOApp
+  do
+    space
+    expr3 <- parseExpr
+    return (LamApp (LamApp expr1 expr2) expr3)
+    <|>
+    return (LamApp expr1 expr2)
+  <|> parseExprWOApp
 
-changeLapp :: LamExpr -> LamExpr -> LamExpr
-changeLapp expr1 (LamApp pExpr@(LamApp expr2 expr3) expr4) = LamApp (LamApp (changeLapp expr1 pExpr) expr3) expr4
-changeLapp expr1 (LamApp expr2 expr3) = LamApp (LamApp expr1 expr2) expr3
-changeLapp expr1 expr2 = LamApp expr1 expr2
 
 parseAbs :: Parser LamExpr
 parseAbs = do
@@ -398,7 +394,7 @@ parseAbs = do
   let (LamVar var) = lamVar
   symbol "->"
   expr <- parseExpr
-  parseApp (LamAbs var expr)
+  return (LamAbs var expr)
 
 parseBrac :: Parser LamExpr
 parseBrac = do
@@ -406,7 +402,7 @@ parseBrac = do
   char '('
   expr <- parseExpr
   char ')'
-  parseApp expr
+  return expr
 
 parseLamMacro :: String -> Maybe LamMacroExpr
 parseLamMacro str = case parse parseMacroExpr str of
@@ -533,8 +529,9 @@ helpInner :: [(String, LamExpr)] -> LamExpr -> [LamExpr]
 helpInner macros (LamApp (LamAbs z n) m) =
                                        [LamApp (LamAbs z n) ys | ys <- helpInner macros m] ++
                                        [LamApp (LamAbs z xs) m | xs <- helpInner macros n] ++
-                                       [substituteVar z m n] ++
-                                       [LamApp (LamAbs z n) zs | zs <- checkMacro macros m]
+                                       [LamApp (LamAbs z zs) m | zs <- checkMacro macros n] ++
+                                       [LamApp (LamAbs z n) zs | zs <- checkMacro macros m] ++
+                                       [substituteVar z m n]
 
 helpInner macros (LamApp n m) =
                             [LamApp xs m | xs <- helpInner macros n] ++
@@ -555,6 +552,7 @@ innerRedn1 (LamDef macros expr)
 -- | Outer reduction helper
 helpOuter :: [(String, LamExpr)] -> LamExpr -> [LamExpr]
 helpOuter macros (LamApp (LamAbs z n) m) =
+                                    [LamApp (LamAbs z zs) m | zs <- checkMacro macros n] ++
                                     [LamApp (LamAbs z n) zs | zs <- checkMacro macros m] ++
                                     [substituteVar z m n] ++
                                     [LamApp (LamAbs z n) ys | ys <- helpOuter macros m] ++

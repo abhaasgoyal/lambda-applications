@@ -101,7 +101,21 @@ testParse = Test
                 assertEq
                 (parseLamMacro "(x1)") (Just (LamDef [] (LamVar 1))),
                 assertEq
-                (parseLamMacro "invalid") Nothing
+                (parseLamMacro "invalid") Nothing,
+                assertEq
+                (parseLamMacro "(\\x1 -> x1 x2)") (Just ex6'1),
+                assertEq
+                (parseLamMacro "def F=\\x1 -> x1 in F") (Just ex6'2),
+                assertEq
+                (parseLamMacro "(\\x1->x1)(\\x2->x2)") (Just ex6'3),
+                assertEq
+                (parseLamMacro "(\\x1->x1 x1)(\\x1->x1 x1)") (Just ex6'4),
+                assertEq
+                (parseLamMacro "def ID=\\x1 -> x1 in def FST=(\\x1->\\x2->x1) in FST x3 (ID x4)") (Just ex6'5),
+                assertEq
+                (parseLamMacro "def FST=(\\x1->\\x2->x1) in FST x3 ((\\x1 -> x1) x4)") (Just ex6'6),
+                assertEq
+                (parseLamMacro "def ID=\\x1->x1 in def SND=\\x1->\\x2->x2 in (SND((\\x1->x1 x1) \\x1->x1 x1)) ID") (Just ex6'7) -- Extre bracket was needed further testing required
                      ])
 
 testCPS :: Test
@@ -159,7 +173,7 @@ ex6'2 = LamDef [ ("F",exId) ] (LamMacro "F")
 ex6'3 = LamDef [] ( LamApp exId (LamAbs 2 (LamVar 2)))
 
 --  (\x1 -> x1 x1)(\x1 -> x1 x1)
-wExp = (LamAbs 1 (LamApp (LamVar 1) (LamVar 1)))
+wExp = LamAbs 1 (LamApp (LamVar 1) (LamVar 1))
 ex6'4 = LamDef [] (LamApp wExp wExp)
 
 --  def ID = \x1 -> x1 in def FST = (\x1 -> λx2 -> x1) in FST x3 (ID x4)

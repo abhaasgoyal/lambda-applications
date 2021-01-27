@@ -7,7 +7,7 @@
 -- DO NOT MODIFY THE FOLLOWING LINES OF CODE
 module Challenges (WordSearchGrid,Placement,Posn,Orientation(..),solveWordSearch, createWordSearch,
     LamMacroExpr(..),LamExpr(..),prettyPrint, parseLamMacro,
-    cpsTransform,innerRedn1,outerRedn1,compareInnerOuter, correctGrid) where
+    cpsTransform,innerRedn1,outerRedn1,compareInnerOuter, correctGrid, applyId) where
 
 -- Import standard library and parsing definitions from Hutton 2016, Chapter 13
 -- We import System.Random - make sure that your installation has it installed - use stack ghci and stack ghc
@@ -315,7 +315,7 @@ eqSyntaxExpr varLookUp expr1 expr2 = case (expr1,expr2) of
    where
      -- Either a variable on lookup equal or a free variable
      checkEq :: Int -> Int -> Bool
-     checkEq a b = lookUpInt a b || isNothing (lookup a varLookUp)
+     checkEq a b = lookUpInt a b  || (isNothing (lookup a varLookUp) && lookUpInt a b)
 
      lookUpInt :: Int -> Int -> Bool
      lookUpInt a b = fromMaybe (-1) (lookup a varLookUp) == b
@@ -335,22 +335,21 @@ prettyPrint (LamDef defs expr) = concatMap helpPrintDef defs ++ abstractExpr exp
 
 parseMacroExpr :: Parser LamMacroExpr
 parseMacroExpr = do
-  defs <- parseDefs []
-  expr <- parseExpr
-  return (LamDef defs expr)
+  def <- parseDef
+  (LamDef defs expr) <- parseMacroExpr
+  return (LamDef (def:defs) expr)
   <|> do
   expr <- parseExpr
   return (LamDef [] expr)
 
-parseDefs :: [(String, LamExpr)] -> Parser [(String, LamExpr)]
-parseDefs defs = do
-  newDef <- parseDef
-  if null newDef then
-    return defs
-  else do
-    finalDef <- parseDefs (newDef:defs)
-    return (newDef:finalDef)
-    <|> return (newDef:defs)
+-- parseDefs :: [(String, LamExpr)] -> Parser [(String, LamExpr)]
+-- parseDefs defs = do
+--   newDef <- parseDef
+--   do
+--     finalDef <- parseDefs (newDef:defs)
+--     return (newDef:finalDef)
+--     <|> return (newDef:defs)
+--   <|> return []
 
 parseDef :: Parser (String, LamExpr)
 parseDef = do
@@ -362,7 +361,7 @@ parseDef = do
   char '='
   space
   expr <- parseExpr
-  space
+  minSpace
   string "in"
   minSpace
   return (x, expr)
@@ -376,7 +375,7 @@ parseExprWOApp = parseBrac <|> parseVar <|> parseMacro <|> parseAbs
 parseVar :: Parser LamExpr
 parseVar = do
   char 'x'
-  var <- natural
+  var <- nat
   return (LamVar var)
 
 parseMacro :: Parser LamExpr
@@ -387,9 +386,10 @@ parseMacro = do
 parseApp :: Parser LamExpr
 parseApp = do
   expr1 <- parseExprWOApp
-  minSpace
-  expr2 <- parseExprWOApp
-  return (LamApp expr1 expr2)
+  do
+    expr2 <- parseExprWOApp
+    return (LamApp expr1 expr2)
+    <|> return expr1
 
 parseAbs :: Parser LamExpr
 parseAbs = do
@@ -530,11 +530,12 @@ innerRedn1 (LamDef macros expr)
   where
     reducedExp = helpInner macros expr
 
+-- To expand macro before applying
 -- | Outer reduction helper
 helpOuter :: [(String, LamExpr)] -> LamExpr -> [LamExpr]
 helpOuter macros (LamApp (LamAbs z n) m) =
-                                    [substituteVar z m n] ++
                                     [LamApp (LamAbs z n) zs | zs <- checkMacro macros m] ++
+                                    [substituteVar z m n] ++
                                     [LamApp (LamAbs z n) ys | ys <- helpOuter macros m] ++
                                     [LamApp (LamAbs z xs) m | xs <- helpOuter macros n]
 
@@ -554,6 +555,8 @@ outerRedn1 (LamDef macros expr)
   where
     reducedExp = helpOuter macros expr
 
+applyId :: LamMacroExpr -> LamMacroExpr
+applyId (LamDef defs expr) = LamDef defs (LamApp expr (LamAbs 1 (LamVar 1)))
 
 compareInnerOuter :: LamMacroExpr -> Int -> (Maybe Int,Maybe Int,Maybe Int,Maybe Int)
 compareInnerOuter mainExp bound = (reducedExp innerRedn1 mainExp,
@@ -565,17 +568,14 @@ compareInnerOuter mainExp bound = (reducedExp innerRedn1 mainExp,
     cpsExp :: LamMacroExpr
     cpsExp = applyId . cpsTransform $ mainExp
 
-    applyId :: LamMacroExpr -> LamMacroExpr
-    applyId (LamDef defs expr) = LamDef defs (LamApp expr (LamAbs 1 (LamVar 1)))
-
     reducedExp :: (LamMacroExpr -> Maybe LamMacroExpr) -> LamMacroExpr ->  Maybe Int
-    reducedExp redStrat expr = checkBounds . subtract 1 . length . take bound . takeWhile isJust
+    reducedExp redStrat expr = checkBounds . length . take (bound + 2) . takeWhile isJust
                                $ iterate (maybe Nothing redStrat) (Just expr)
 
     checkBounds :: Int -> Maybe Int
     checkBounds a
-      | a >= (bound - 1) = Nothing
-      | otherwise = Just a
+      | a > bound + 1 = Nothing
+      | otherwise = Just (a - 1)
 
 exId =  LamAbs 1 (LamVar 1)
 -- (\x1 -> x1 x2)
@@ -619,3 +619,6 @@ eeeee = LamDef [("G",LamAbs 1 (LamAbs 2 (LamVar 1))),
 stepPrintInner n expr = prettyPrint . fromJust . last . take n $ iterate (maybe Nothing innerRedn1) (Just expr)
 stepInner n expr =  fromJust . last . take n $ iterate (maybe Nothing innerRedn1) (Just expr)
 stepPrintOuter n expr = prettyPrint . fromJust . last . take n $ iterate (maybe Nothing outerRedn1) (Just expr)
+stepOuter n expr =  fromJust . last . take n $ iterate (maybe Nothing outerRedn1) (Just expr)
+stepOuterIt n expr =  take n $ iterate (maybe Nothing outerRedn1) (Just expr)
+stepInnerIt n expr =  takeWhile isJust $ iterate (maybe Nothing innerRedn1) (Just expr)

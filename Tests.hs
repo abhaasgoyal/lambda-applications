@@ -76,7 +76,7 @@ testSolveWordSearch = Test
 
 
 test2 :: [Test]
-test2 = [testPrettyPrint, testParse, testCPS]
+test2 = [testPrettyPrint, testParse, testCPS, testRed]
 
 testPrettyPrint :: Test
 testPrettyPrint = Test
@@ -118,6 +118,19 @@ testCPS = Test
               "def F=\\x2->x2 \\x1->\\x3->x3 x1 in \\x2->F \\x4->F \\x6->x4 x6 x2"
                    ])
 
+testRed :: Test
+testRed = Test
+          "Reduction Strategies"
+          (testList [
+              assertEq (compareInnerOuter ex6'1 10) (Just 0, Just 0, Just 6, Just 6),
+              assertEq (compareInnerOuter ex6'1 6) (Just 0, Just 0, Just 6, Just 6),
+              assertEq (compareInnerOuter ex6'2 10) (Just 1, Just 1, Just 3, Just 3),
+              assertEq (compareInnerOuter ex6'3 10) (Just 1, Just 1, Just 8, Just 8),
+              assertEq (compareInnerOuter ex6'4 10) (Nothing, Nothing, Nothing, Nothing), --
+              assertEq (compareInnerOuter ex6'1 30) (Just 0, Just 0, Just 6, Just 6), --
+              assertEq (compareInnerOuter ex6'1 30) (Just 0, Just 0, Just 6, Just 6), --
+              assertEq (compareInnerOuter ex6'7 10) (Nothing, Just 4, Nothing, Nothing) --
+                    ])
 exGrid1'1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ]
 exWords1'1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]
 

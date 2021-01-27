@@ -115,8 +115,15 @@ testParse = Test
                 assertEq
                 (parseLamMacro "def FST=(\\x1->\\x2->x1) in FST x3 ((\\x1 -> x1) x4)") (Just ex6'6),
                 assertEq
-                (parseLamMacro "def ID=\\x1 -> x1 in def SND=\\x1->\\x2->x2 in SND((\\x1->x1 x1) \\x1->x1 x1) ID") (Just ex6'7)
-
+                (parseLamMacro "def ID=\\x1 -> x1 in def SND=\\x1->\\x2->x2 in SND((\\x1->x1 x1) \\x1->x1 x1) ID") (Just ex6'7),
+                assertEq
+                (parseLamMacro "x1 (x2 x3)") (Just ex4'1),
+                assertEq (parseLamMacro "x1 x2 F") (Just ex4'2),
+                assertEq (parseLamMacro "def F = \\x1-> x1 in \\x2 -> x2 F") (Just ex4'3),
+                assertEq (parseLamMacro "def F=\\x1 -> x1 (def G = \\x1 -> x1) in \\x2 -> x2")
+                Nothing,
+                assertEq (parseLamMacro "def F=\\x1-> x1 in def F = \\x2 -> x2 x1 in x1") Nothing,
+                assertEq (parseLamMacro "def F=x1 in F") Nothing
                      ])
 
 testCPS :: Test
@@ -165,6 +172,10 @@ ex5'2 = LamDef [ ("F", exId) ] (LamVar 2)
 ex5'3 = LamDef [ ("F", exId) ] (LamMacro "F")
 ex5'4 = LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F"))
 
+ex4'1 = LamDef [] (LamApp (LamVar 1) (LamApp (LamVar 2) (LamVar 3)))
+ex4'2 = LamDef [] (LamApp (LamApp (LamVar 1) (LamVar 2)) (LamMacro "F"))
+ex4'3 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))
+
 -- (\x1 -> x1 x2)
 ex6'1 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamVar 2)))
 
@@ -182,7 +193,7 @@ ex6'4 = LamDef [] (LamApp wExp wExp)
 ex6'5 = LamDef [ ("ID",exId) , ("FST",LamAbs 1 (LamAbs 2 (LamVar 1))) ] ( LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp (LamMacro "ID") (LamVar 4)))
 
 --  def FST = (\x1 -> λx2 -> x1) in FST x3 ((\x1 ->x1) x4))
-ex6'6 = LamDef [ ("FST", LamAbs 1 (LamAbs 2 (LamVar 1)) ) ]  ( LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp (exId) (LamVar 4)))
+ex6'6 = LamDef [ ("FST", LamAbs 1 (LamAbs 2 (LamVar 1)) ) ]  ( LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp exId (LamVar 4)))
 
 -- def ID = \x1 -> x1 in def SND = (\x1 -> λx2 -> x2) in SND ((\x1 -> x1 x1) (\x1 -> x1 x1)) ID
 ex6'7 = LamDef [ ("ID",exId) , ("SND",LamAbs 1 (LamAbs 2 (LamVar 2))) ]  (LamApp (LamApp (LamMacro "SND") (LamApp wExp wExp) ) (LamMacro "ID") )

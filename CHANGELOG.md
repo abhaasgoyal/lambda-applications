@@ -1,5 +1,5 @@
-# Revision history for Charles
+# Revision history for Lambda
 
-## 0.1.0.0 -- YYYY-mm-dd
+## 0.1.0.0 -- 2021-01-27
 
-* First version. Released on an unsuspecting world.
+* A prototype version on lambda calculus application and Haskell read world usages

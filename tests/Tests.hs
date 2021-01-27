@@ -2,9 +2,12 @@
 
 module Tests where
 
-import Challenges
+import LambdaAdv
+import WordSearch
+import LambdaCalc
 import System.Exit
 import Data.Maybe
+import Types
 
 data Test = Test String TestResult
 
@@ -35,21 +38,14 @@ runTests t = case t of
     putStrLn failMsg
     exitFailure
 
-main :: IO ()
-main = do
-  runTests test1
-  testCreatedGrid "Test Creation1" exWords1'1 0.3
-  runTests test2
-  exitSuccess
-
 test1 :: [Test]
 test1 = [testSolveWordSearch]
 
-testCreatedGrid :: String -> [String] -> Float -> IO ()
-testCreatedGrid msg words density = do
-  newWordSearch <- createWordSearch exWords1'1 0.3
-  let correctedGrid = correctGrid newWordSearch words
-  let correctedSolve = all ((/=Nothing) . snd) $ solveWordSearch words newWordSearch
+testCreatedGrid :: String -> [String] -> Double -> IO ()
+testCreatedGrid msg wds density = do
+  newWordSearch <- createWordSearch exWords1'1 density
+  let correctedGrid = correctGrid newWordSearch wds
+  let correctedSolve = all ((/=Nothing) . snd) $ solveWordSearch wds newWordSearch
   runTests [Test msg (assertEq correctedGrid True), Test msg (assertEq correctedSolve True)]
 
 testSolveWordSearch :: Test

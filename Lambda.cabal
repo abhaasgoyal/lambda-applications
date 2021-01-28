@@ -14,25 +14,27 @@ library
                      LambdaCalc,
                      LambdaAdv,
                      WordSearch,
-                     Parsing
+                     Parsing,
+                     Tests
   build-depends:     base >=4.14 && <4.15,
                      random >= 1.2.0
   hs-source-dirs:    lib,
                      src/LambdaCalculus,
-                     src/WordSearch
+                     src/WordSearch,
+                     tests
 --  ghc-options:         -Wall -Wno-partial-type-signatures
   default-language:  Haskell2010
 executable Lambda
   main-is:           Main.hs
   hs-source-dirs:    lib,
                      src
-  build-depends:     base,
-                     lambda-applications
+  build-depends:     base
   ghc-options:       -threaded
                      -- Wall
   default-language:  Haskell2010
 
 test-suite Lambda-Tests
+  other-modules:   Tests
   type:              exitcode-stdio-1.0
   main-is:           Main.hs
   hs-source-dirs:    tests

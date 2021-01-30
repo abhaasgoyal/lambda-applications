@@ -188,7 +188,7 @@ compareInnerOuter mainExp bound =
     cpsExp = applyId . cpsTransform $ mainExp
 
     redBounds :: (LamMacroExpr -> Maybe LamMacroExpr) -> LamMacroExpr -> Maybe Int
-    redBounds redStrat expr =  checkBounds . length . take (bound + 2) $ reduceExprN redStrat expr bound
+    redBounds redStrat expr =  checkBounds . length $ reduceExprN redStrat expr bound
       where
         checkBounds :: Int -> Maybe Int
         checkBounds a

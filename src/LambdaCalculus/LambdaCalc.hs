@@ -1,9 +1,18 @@
-module LambdaCalc where
+{-|
+Module      : LambdaCalc
+Description : Basic functions for printing expressions and parsing strings to expressions
+Author      : Abhaas Goyal
+-}
+module LambdaCalc (prettyPrint, parseLamMacro, exprToMac) where
 
 import Data.List
 import Data.Maybe
 import Parsing
 import Types
+
+-- | Pure Lamda expressions represented in macro form
+exprToMac :: LamExpr -> LamMacroExpr
+exprToMac = LamDef []
 
 printVar :: Int -> String
 printVar i = 'x' : show i

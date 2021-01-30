@@ -1,5 +1,8 @@
--- Functional parsing library from chapter 13 of Programming in Haskell,
--- Graham Hutton, Cambridge University Press, 2016.
+{-|
+Module      : Parsing
+Description : Functional Parsing Library from chapter 13 of programming in Haskell
+Author      : Graham Hutton, Cambridge University Press, 2016.
+-}
 
 module Parsing (module Parsing, module Control.Applicative) where
 
@@ -11,7 +14,7 @@ import Data.Char
 newtype Parser a = P (String -> [(a,String)])
 
 parse :: Parser a -> String -> [(a,String)]
-parse (P p) inp = p inp
+parse (P p) = p
 
 item :: Parser Char
 item = P (\inp -> case inp of

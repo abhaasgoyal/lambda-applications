@@ -1,3 +1,8 @@
+{-|
+Module      : WordSearch
+Description : Haskell backend app for creating and solving word search games
+Author      : Abhaas Goyal
+-}
 module WordSearch where
 
 import Control.Monad

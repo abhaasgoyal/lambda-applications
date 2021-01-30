@@ -1,4 +1,10 @@
-module LambdaAdv where
+{-|
+Module      : LambdaAdv
+Description : Functions for converting lambda expressions into CPS and reduction strategies
+Author      : Abhaas Goyal
+-}
+
+module LambdaAdv (cpsTransform, compareInnerOuter, innerRedn1, outerRedn1, innerRedN, outerRedN) where
 
 import Data.List
 import Data.Maybe
@@ -172,21 +178,32 @@ applyId (LamDef defs expr) = LamDef defs (LamApp expr (LamAbs 1 (LamVar 1)))
 
 compareInnerOuter :: LamMacroExpr -> Int -> (Maybe Int, Maybe Int, Maybe Int, Maybe Int)
 compareInnerOuter mainExp bound =
-  ( reducedExp innerRedn1 mainExp,
-    reducedExp outerRedn1 mainExp,
-    reducedExp innerRedn1 cpsExp,
-    reducedExp outerRedn1 cpsExp
+  ( redBounds innerRedn1 mainExp,
+    redBounds outerRedn1 mainExp,
+    redBounds innerRedn1 cpsExp,
+    redBounds outerRedn1 cpsExp
   )
   where
     cpsExp :: LamMacroExpr
     cpsExp = applyId . cpsTransform $ mainExp
 
-    reducedExp :: (LamMacroExpr -> Maybe LamMacroExpr) -> LamMacroExpr -> Maybe Int
-    reducedExp redStrat expr =
-      checkBounds . length . take (bound + 2) . takeWhile isJust $
-        iterate (maybe Nothing redStrat) (Just expr)
+    redBounds :: (LamMacroExpr -> Maybe LamMacroExpr) -> LamMacroExpr -> Maybe Int
+    redBounds redStrat expr =  checkBounds . length . take (bound + 2) $ reduceExprN redStrat expr bound
+      where
+        checkBounds :: Int -> Maybe Int
+        checkBounds a
+          | a > bound + 1 = Nothing
+          | otherwise = Just (a - 1)
 
-    checkBounds :: Int -> Maybe Int
-    checkBounds a
-      | a > bound + 1 = Nothing
-      | otherwise = Just (a - 1)
+-- | Check limit on reduced expression
+reduceExprN :: (LamMacroExpr -> Maybe LamMacroExpr) -> LamMacroExpr -> Int -> [Maybe LamMacroExpr]
+reduceExprN redStrat expr bound = take (bound + 2) . takeWhile isJust $
+    iterate (maybe Nothing redStrat) (Just expr)
+
+-- | Inner reduction n times
+innerRedN :: LamMacroExpr -> Int -> [Maybe LamMacroExpr]
+innerRedN = reduceExprN innerRedn1
+
+-- | Outer reduction n times
+outerRedN :: LamMacroExpr -> Int -> [Maybe LamMacroExpr]
+outerRedN = reduceExprN innerRedn1

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-|
 Module      : Parsing
 Description : Functional Parsing Library from chapter 13 of programming in Haskell
@@ -17,9 +18,9 @@ parse :: Parser a -> String -> [(a,String)]
 parse (P p) = p
 
 item :: Parser Char
-item = P (\inp -> case inp of
-                     []     -> []
-                     (x:xs) -> [(x,xs)])
+item = P (\case
+              [] -> []
+              (x : xs) -> [(x, xs)])
 
 -- Sequencing parsers
 
@@ -27,7 +28,7 @@ instance Functor Parser where
    -- fmap :: (a -> b) -> Parser a -> Parser b
    fmap g p = P (\inp -> case parse p inp of
                             []        -> []
-                            [(v,out)] -> [(g v, out)])
+                            (v,out):_ -> [(g v, out)])
 
 instance Applicative Parser where
    -- pure :: a -> Parser a
@@ -36,13 +37,13 @@ instance Applicative Parser where
    -- <*> :: Parser (a -> b) -> Parser a -> Parser b
    pg <*> px = P (\inp -> case parse pg inp of
                              []        -> []
-                             [(g,out)] -> parse (fmap g px) out)
+                             (g,out):_ -> parse (fmap g px) out)
 
 instance Monad Parser where
    -- (>>=) :: Parser a -> (a -> Parser b) -> Parser b
    p >>= f = P (\inp -> case parse p inp of
                            []        -> []
-                           [(v,out)] -> parse (f v) out)
+                           (v,out):_ -> parse (f v) out)
 
 -- Making choices
 
@@ -53,7 +54,7 @@ instance Alternative Parser where
    -- (<|>) :: Parser a -> Parser a -> Parser a
    p <|> q = P (\inp -> case parse p inp of
                            []        -> parse q inp
-                           [(v,out)] -> [(v,out)])
+                           (v,out):_ -> [(v,out)])
 
 -- Derived primitives
 
@@ -76,14 +77,16 @@ letter = sat isAlpha
 alphanum :: Parser Char
 alphanum = sat isAlphaNum
 
-char :: Char -> Parser Char
-char x = sat (== x)
+char :: Char -> Parser ()
+char x = do
+  _ <- sat (== x)
+  return ()
 
-string :: String -> Parser String
-string []     = return []
+string :: String -> Parser ()
+string []     = return ()
 string (x:xs) = do char x
                    string xs
-                   return (x:xs)
+                   return ()
 
 ident :: Parser String
 ident = do x  <- lower
@@ -103,11 +106,11 @@ int = do char '-'
 -- Handling spacing
 
 space :: Parser ()
-space = do many (sat isSpace)
+space = do _ <- many (sat isSpace)
            return ()
 
 minSpace :: Parser ()
-minSpace = do some (sat isSpace)
+minSpace = do _ <- some (sat isSpace)
               return ()
 
 token :: Parser a -> Parser a
@@ -126,4 +129,6 @@ integer :: Parser Int
 integer = token int
 
 symbol :: String -> Parser String
-symbol xs = token (string xs)
+symbol xs = do
+  token (string xs)
+  return xs

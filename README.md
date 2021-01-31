@@ -75,7 +75,7 @@ data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
 #### Functions
 
 (Note that the usage of term expression means macro lambda expression in the context)
-1. Pretty Printing any expression (removing all unnecessary brackets using left and right associative rules)
+1. Pretty Printing any expression (removing all unnecessary brackets using left and right associative rules, finding syntactically equal expressions and replacing then with macros)
 
    `prettyPrint :: LamMacroExpr -> String`
 

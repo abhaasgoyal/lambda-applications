@@ -4,7 +4,6 @@ Description : Basic functions for printing expressions and parsing strings to ex
 Author      : Abhaas Goyal
 -}
 module LambdaCalc (prettyPrint, parseLamMacro, exprToMac) where
-
 import Data.List
 import Data.Maybe
 import Parsing

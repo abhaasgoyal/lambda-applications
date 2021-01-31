@@ -7,10 +7,9 @@ Author      : Abhaas Goyal
 module Types where
 
 -- Lamda Calculus Types
-data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read)
+data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq, Read)
 data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
-               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read)
-
+               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Read)
 
 -- Word Search Types
 type WordSearchGrid = [[ Char ]]

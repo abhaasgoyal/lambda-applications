@@ -5,12 +5,12 @@ Author      : Abhaas Goyal
 -}
 module WordSearch where
 
-import Control.Monad
-import Data.List
-import Data.Maybe
+import           Control.Monad
+import           Data.List
+import           Data.Maybe
 import qualified Data.Ord
-import System.Random
-import Types
+import           System.Random
+import           Types
 
 -- | Diagonal String out of grid
 diagonalString :: [GridWithPos] -> GridWithPos

@@ -181,59 +181,84 @@ testRed =
         ]
     )
 
+exGrid1'1 :: WordSearchGrid
 exGrid1'1 = ["HAGNIRTSH", "SACAGETAK", "GCSTACKEL", "MGHKMILKI", "EKNLETGCN", "TNIRTLETE", "IRAAHCLSR", "MAMROSAGD", "GIZKDDNRG"]
 
+exWords1'1 :: [String]
 exWords1'1 = ["HASKELL", "STRING", "STACK", "MAIN", "METHOD"]
 
+exGrid1'2 :: WordSearchGrid
 exGrid1'2 = ["ROBREUMBR", "AURPEPSAN", "UNLALMSEE", "YGAUNPYYP", "NLMNBGENA", "NBLEALEOR", "ALRYPBBLG", "NREPBEBEP", "YGAYAROMR"]
 
+exWords1'2 :: [String]
 exWords1'2 = ["BANANA", "ORANGE", "MELON", "RASPBERRY", "APPLE", "PLUM", "GRAPE"]
 
+ex3'1 :: LamMacroExpr
 ex3'1 = LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))
 
+ex3'2 :: LamMacroExpr
 ex3'2 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))
 
+ex3'3 :: LamMacroExpr
 ex3'3 = LamDef [("F", LamAbs 1 (LamVar 1))] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))
 
+ex3'4 :: LamMacroExpr
 ex3'4 = LamDef [("F", LamAbs 1 (LamVar 1))] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))
 
+ex3'5 :: LamMacroExpr
 ex3'5 = LamDef [] (LamApp (LamVar 1) (LamApp (LamVar 3) (LamVar 4)))
 
+exId :: LamExpr
 exId = LamAbs 1 (LamVar 1)
 
+ex5'1 :: LamMacroExpr
 ex5'1 = LamDef [] (LamApp (LamVar 1) (LamVar 2))
 
+ex5'2 :: LamMacroExpr
 ex5'2 = LamDef [("F", exId)] (LamVar 2)
 
+ex5'3 :: LamMacroExpr
 ex5'3 = LamDef [("F", exId)] (LamMacro "F")
 
+ex5'4 :: LamMacroExpr
 ex5'4 = LamDef [("F", exId)] (LamApp (LamMacro "F") (LamMacro "F"))
 
+ex4'1 :: LamMacroExpr
 ex4'1 = LamDef [] (LamApp (LamVar 1) (LamApp (LamVar 2) (LamVar 3)))
 
+ex4'2 :: LamMacroExpr
 ex4'2 = LamDef [] (LamApp (LamApp (LamVar 1) (LamVar 2)) (LamMacro "F"))
 
+ex4'3 :: LamMacroExpr
 ex4'3 = LamDef [("F", LamAbs 1 (LamVar 1))] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))
 
 -- (\x1 -> x1 x2)
+ex6'1 :: LamMacroExpr
 ex6'1 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamVar 2)))
 
 --  def F = \x1 -> x1 in F
+ex6'2 :: LamMacroExpr
 ex6'2 = LamDef [("F", exId)] (LamMacro "F")
 
 --  (\x1 -> x1) (\x2 -> x2)
+ex6'3 :: LamMacroExpr
 ex6'3 = LamDef [] (LamApp exId (LamAbs 2 (LamVar 2)))
 
 --  (\x1 -> x1 x1)(\x1 -> x1 x1)
+wExp :: LamExpr
 wExp = LamAbs 1 (LamApp (LamVar 1) (LamVar 1))
 
+ex6'4 :: LamMacroExpr
 ex6'4 = LamDef [] (LamApp wExp wExp)
 
 --  def ID = \x1 -> x1 in def FST = (\x1 -> λx2 -> x1) in FST x3 (ID x4)
+ex6'5 :: LamMacroExpr
 ex6'5 = LamDef [("ID", exId), ("FST", LamAbs 1 (LamAbs 2 (LamVar 1)))] (LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp (LamMacro "ID") (LamVar 4)))
 
 --  def FST = (\x1 -> λx2 -> x1) in FST x3 ((\x1 ->x1) x4))
+ex6'6 :: LamMacroExpr
 ex6'6 = LamDef [("FST", LamAbs 1 (LamAbs 2 (LamVar 1)))] (LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp exId (LamVar 4)))
 
 -- def ID = \x1 -> x1 in def SND = (\x1 -> λx2 -> x2) in SND ((\x1 -> x1 x1) (\x1 -> x1 x1)) ID
+ex6'7 :: LamMacroExpr
 ex6'7 = LamDef [("ID", exId), ("SND", LamAbs 1 (LamAbs 2 (LamVar 2)))] (LamApp (LamApp (LamMacro "SND") (LamApp wExp wExp)) (LamMacro "ID"))

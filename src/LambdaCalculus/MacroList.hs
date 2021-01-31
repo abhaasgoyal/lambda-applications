@@ -1,9 +1,6 @@
 module MacroList where
 
 import Types
-import LambdaAdv
-import LambdaCalc
-import Data.Maybe
 
 -- Identity Function
 id :: LamExpr
@@ -49,7 +46,7 @@ toNum (LamAbs _ expr) = 1 + toNum expr
 toNum _ = error "toNum: Incorrect expression given"
 
 toExpr :: Int -> LamExpr
-toExpr n = LamAbs 1 (LamAbs 2 (helpExpr n))
+toExpr no = LamAbs 1 (LamAbs 2 (helpExpr no))
   where
     helpExpr :: Int -> LamExpr
     helpExpr 0 = LamVar 2

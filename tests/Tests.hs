@@ -103,44 +103,44 @@ testParse =
     ( testList
         [ assertEq
             (parseLamMacro "def F=\\x1->x1 in F")
-            (Just (LamDef [("F", LamAbs 1 (LamVar 1))] (LamMacro "F"))),
+            (Right (LamDef [("F", LamAbs 1 (LamVar 1))] (LamMacro "F"))),
           assertEq
             (parseLamMacro "(x1)")
-            (Just (LamDef [] (LamVar 1))),
+            (Right (LamDef [] (LamVar 1))),
           assertEq
             (parseLamMacro "invalid")
-            Nothing,
+            (Left "Invalid grammar input"),
           assertEq
             (parseLamMacro "(\\x1 -> x1 x2)")
-            (Just ex6'1),
+            (Right ex6'1),
           assertEq
             (parseLamMacro "def F=\\x1 -> x1 in F")
-            (Just ex6'2),
+            (Right ex6'2),
           assertEq
             (parseLamMacro "(\\x1->x1)(\\x2->x2)")
-            (Just ex6'3),
+            (Right ex6'3),
           assertEq
             (parseLamMacro "(\\x1->x1 x1)(\\x1->x1 x1)")
-            (Just ex6'4),
+            (Right ex6'4),
           assertEq
             (parseLamMacro "def ID=\\x1 -> x1 in def FST=(\\x1->\\x2->x1) in FST x3 (ID x4)")
-            (Just ex6'5),
+            (Right ex6'5),
           assertEq
             (parseLamMacro "def FST=(\\x1->\\x2->x1) in FST x3 ((\\x1 -> x1) x4)")
-            (Just ex6'6),
+            (Right ex6'6),
           assertEq
             (parseLamMacro "def ID=\\x1 -> x1 in def SND=\\x1->\\x2->x2 in SND((\\x1->x1 x1) \\x1->x1 x1) ID")
-            (Just ex6'7),
+            (Right ex6'7),
           assertEq
             (parseLamMacro "x1 (x2 x3)")
-            (Just ex4'1),
-          assertEq (parseLamMacro "x1 x2 F") (Just ex4'2),
-          assertEq (parseLamMacro "def F = \\x1-> x1 in \\x2 -> x2 F") (Just ex4'3),
+            (Right ex4'1),
+          assertEq (parseLamMacro "x1 x2 F") (Right ex4'2),
+          assertEq (parseLamMacro "def F = \\x1-> x1 in \\x2 -> x2 F") (Right ex4'3),
           assertEq
             (parseLamMacro "def F=\\x1 -> x1 (def G = \\x1 -> x1) in \\x2 -> x2")
-            Nothing,
-          assertEq (parseLamMacro "def F=\\x1-> x1 in def F = \\x2 -> x2 x1 in x1") Nothing,
-          assertEq (parseLamMacro "def F=x1 in F") Nothing
+            (Left "Invalid grammar input"),
+          assertEq (parseLamMacro "def F=\\x1-> x1 in def F = \\x2 -> x2 x1 in x1") (Left "Repeated macro definition"),
+          assertEq (parseLamMacro "def F=x1 in F") (Left "Free variable in macro")
         ]
     )
 

@@ -106,9 +106,7 @@ parseVar = do
   LamVar <$> nat
 
 parseMacro :: Parser LamExpr
-parseMacro = do
-  x <- some upper
-  return (LamMacro x)
+parseMacro = LamMacro <$> some upper
 
 parseApp :: Parser LamExpr
 parseApp =
@@ -140,15 +138,18 @@ parseBrac = do
   return expr
 
 -- | Main function for parsing macro expressions
-parseLamMacro :: String -> Maybe LamMacroExpr
+parseLamMacro :: String -> Either String LamMacroExpr
 parseLamMacro str = case parse parseMacroExpr str of
-  [] -> Nothing
-  (x, "") : _ -> if checkMacroExpr x then Just x else Nothing
-  _ -> Nothing
+  [] -> Left "Invalid grammar input"
+  (x, "") : _ -> checkMacroExpr x
+  _ -> Left "Half parsed string"
 
 -- | Additional checks for repeated macro names or macros having free variables
-checkMacroExpr :: LamMacroExpr -> Bool
-checkMacroExpr (LamDef defs _) = nub macroStrList == macroStrList && macroCheckScope
+checkMacroExpr :: LamMacroExpr -> Either String LamMacroExpr
+checkMacroExpr expr@(LamDef defs _)
+  | nub macroStrList /= macroStrList = Left "Repeated macro definition"
+  | not macroCheckScope = Left "Free variable in macro"
+  | otherwise = Right expr
   where
     macroStrList :: [String]
     macroStrList = map fst defs
